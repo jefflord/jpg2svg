@@ -43,7 +43,11 @@ class CurveMode(StrEnum):
 
 
 class PresetName(StrEnum):
-    """Built-in presets (PRD section 16.1)."""
+    """Built-in presets (PRD section 16.1).
+
+    Kept for API compatibility; the ``preset`` field itself accepts any
+    built-in or user-saved custom preset name (PRD 16.4).
+    """
 
     BW = "bw"
     PHOTO = "photo"
@@ -63,7 +67,9 @@ class ConversionConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    preset: PresetName | None = None
+    # str (not PresetName) so user-saved custom presets are valid (PRD 16.4);
+    # existence is checked by the resolver, which reports all known presets.
+    preset: str | None = None
     clustering: Clustering | None = None
     hierarchical: Hierarchical | None = None
     mode: CurveMode | None = None

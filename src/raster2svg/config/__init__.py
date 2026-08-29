@@ -10,7 +10,16 @@ from raster2svg.config.models import (
     OutputConfig,
     PresetName,
 )
-from raster2svg.config.presets import PRESETS, get_preset
+from raster2svg.config.presets import (
+    PRESETS,
+    UnknownPresetError,
+    available_presets,
+    get_preset,
+    list_custom_presets,
+    preset_source,
+    resolve_preset,
+    save_custom_preset,
+)
 from raster2svg.config.resolver import resolve_conversion_config
 
 __all__ = [
@@ -22,7 +31,13 @@ __all__ = [
     "OutputConfig",
     "PRESETS",
     "PresetName",
+    "UnknownPresetError",
+    "available_presets",
     "get_preset",
+    "list_custom_presets",
     "load_config_file",
+    "preset_source",
     "resolve_conversion_config",
+    "resolve_preset",
+    "save_custom_preset",
 ]

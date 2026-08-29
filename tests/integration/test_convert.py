@@ -62,6 +62,26 @@ def test_png_with_alpha(tmp_path: Path) -> None:
     _assert_valid_svg(tmp_path / "logo.svg")
 
 
+def test_config_preset_is_applied(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A saved custom preset named in ConversionConfig is applied (PRD 16.4, 23)."""
+    monkeypatch.setenv("RASTER2SVG_DATA_DIR", str(tmp_path / "data"))
+    from raster2svg.config.presets import save_custom_preset
+
+    save_custom_preset("my-logo", {"mode": "polygon", "filter_speckle": 5})
+    converter = Converter()
+    result = converter.convert(
+        FIXTURES / "fixture_photo.jpg",
+        tmp_path / "custom.svg",
+        config=ConversionConfig(preset="my-logo"),
+        output=OutputConfig(overwrite=True),
+    )
+    assert result.status == "success"
+    assert result.config["preset"] == "my-logo"
+    assert result.config["mode"] == "polygon"
+    assert result.config["filter_speckle"] == 5
+    _assert_valid_svg(tmp_path / "custom.svg")
+
+
 def test_bw_clustering(tmp_path: Path) -> None:
     converter = Converter()
     config = ConversionConfig(clustering=Clustering.BW, mode=CurveMode.SPLINE)

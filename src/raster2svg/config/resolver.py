@@ -21,7 +21,7 @@ from raster2svg.config.models import (
     ConversionConfig,
     PresetName,
 )
-from raster2svg.config.presets import UnknownPresetError, get_preset
+from raster2svg.config.presets import resolve_preset
 from raster2svg.core.errors import ConfigError
 
 
@@ -51,15 +51,11 @@ def resolve_conversion_config(
     elif cli.get("preset") is not None:
         preset_name = str(cli["preset"])
 
+    # UnknownPresetError (a ConfigError subclass) propagates to the caller
+    # with an actionable hint; resolve_preset follows the base chain.
     base: dict[str, Any] = {}
     if preset_name is not None:
-        try:
-            base.update(get_preset(preset_name))
-        except UnknownPresetError as exc:
-            raise ConfigError(
-                f"Unknown preset: {preset_name}",
-                hint=f"Available presets: {', '.join(exc.available)}",
-            ) from exc
+        base.update(resolve_preset(preset_name))
 
     base.update(file_values)
     base.update(cli)

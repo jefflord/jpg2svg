@@ -173,3 +173,64 @@ def test_report_file_is_written(tmp_path: Path) -> None:
     payload = report.read_text(encoding="utf-8")
     assert '"status": "success"' in payload
     assert "vtracer" in payload
+
+
+def test_preset_list_shows_builtins() -> None:
+    result = runner.invoke(app, ["preset", "list"])
+    assert result.exit_code == 0, result.output
+    for name in ("bw", "photo", "poster"):
+        assert name in result.output
+
+
+def test_preset_show_unknown_exits_2() -> None:
+    result = runner.invoke(app, ["preset", "show", "does-not-exist"])
+    assert result.exit_code == 2
+    assert "Unknown preset" in result.output
+
+
+def test_preset_save_list_show_and_use(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RASTER2SVG_DATA_DIR", str(tmp_path / "data"))
+    source_cfg = tmp_path / "logo.toml"
+    source_cfg.write_text(
+        '[conversion]\npreset = "photo"\nmode = "polygon"\nfilter_speckle = 5\n',
+        encoding="utf-8",
+    )
+
+    saved = runner.invoke(app, ["preset", "save", "my-logo", "--from-config", str(source_cfg)])
+    assert saved.exit_code == 0, saved.output
+    assert "my-logo" in saved.output
+
+    listed = runner.invoke(app, ["preset", "list"])
+    assert listed.exit_code == 0
+    assert "my-logo" in listed.output
+    assert "custom" in listed.output
+
+    shown = runner.invoke(app, ["preset", "show", "my-logo"])
+    assert shown.exit_code == 0, shown.output
+    assert "filter_speckle" in shown.output
+    # base chain applied: photo preset provides clustering
+    assert "color-cluster" in shown.output
+
+    out = tmp_path / "custom.svg"
+    used = runner.invoke(
+        app,
+        [
+            "convert",
+            str(FIXTURES / "fixture_photo.jpg"),
+            str(out),
+            "--preset",
+            "my-logo",
+            "--overwrite",
+        ],
+    )
+    assert used.exit_code == 0, used.output
+    assert out.exists()
+
+
+def test_preset_save_rejects_builtin_name(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RASTER2SVG_DATA_DIR", str(tmp_path / "data"))
+    source_cfg = tmp_path / "c.toml"
+    source_cfg.write_text('mode = "pixel"\n', encoding="utf-8")
+    result = runner.invoke(app, ["preset", "save", "photo", "--from-config", str(source_cfg)])
+    assert result.exit_code == 2
+    assert "shadow" in result.output

@@ -16,6 +16,7 @@ from PIL import Image, UnidentifiedImageError
 
 from raster2svg._version import __version__
 from raster2svg.config.models import ConversionConfig, OutputConfig
+from raster2svg.config.resolver import resolve_conversion_config
 from raster2svg.core.capabilities import EngineCapabilities
 from raster2svg.core.errors import InputError, OutputError
 from raster2svg.core.models import STATUS_DRY_RUN, STATUS_SUCCESS, ConversionResult
@@ -61,7 +62,7 @@ class Converter:
         """
         input_path = Path(input_path)
         output_cfg = output or OutputConfig()
-        conversion_cfg = config or ConversionConfig()
+        conversion_cfg = _apply_preset(config or ConversionConfig())
 
         input_path = validate_input_path(input_path)
         target = Path(output_path) if output_path is not None else default_output_path(input_path)
@@ -143,6 +144,20 @@ class Converter:
                 f"Output directory does not exist: {target.parent}",
                 hint="Omit --no-mkdir to allow creating it.",
             )
+
+
+def _apply_preset(config: ConversionConfig) -> ConversionConfig:
+    """Expand a preset named in the config (library API, PRD 23).
+
+    The CLI resolves presets itself; library callers pass
+    ``ConversionConfig(preset="photo", ...)`` and expect the same
+    semantics: the preset supplies initial values and any other field set
+    on the config wins (PRD 8, 16).
+    """
+    if config.preset is None:
+        return config
+    other = {key: value for key, value in config.model_dump().items() if key != "preset"}
+    return resolve_conversion_config(preset=config.preset, config_file_values=other)
 
 
 def _config_dict(config: ConversionConfig) -> dict[str, Any]:
