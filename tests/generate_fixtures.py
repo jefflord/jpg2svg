@@ -39,6 +39,16 @@ def main() -> None:
 
     # Corrupt file with a valid extension.
     (OUT / "fixture_corrupt.jpg").write_bytes(b"\xff\xd8\xdb\x00not a real jpeg")
+
+    # JPEG with an EXIF orientation tag (rotate 90 CW = tag 6), 96x48 stored,
+    # 48x96 after auto-orientation.
+    oriented = Image.new("RGB", (96, 48))
+    o_draw = ImageDraw.Draw(oriented)
+    o_draw.rectangle([8, 8, 88, 40], fill=(200, 40, 40))
+    exif = oriented.getexif()
+    exif[0x0112] = 6
+    oriented.save(OUT / "fixture_oriented.jpg", quality=90, exif=exif)
+
     print(f"fixtures written to {OUT}")
 
 

@@ -15,18 +15,25 @@ from raster2svg.cli.options import (
     AdaptiveOption,
     AdaptiveTOption,
     AdaptiveWindowOption,
+    AutoOrientOption,
     BinaryThresholdOption,
+    BrightnessOption,
     ClusteringOption,
     ColorPrecisionOption,
     ConfigPathOption,
+    ContrastOption,
     CornerThresholdOption,
+    DenoiseOption,
     DryRunOption,
     FilterSpeckleOption,
+    GrayscaleOption,
     HierarchicalOption,
     LayerDifferenceOption,
     LengthThresholdOption,
     MaxColorsOption,
+    MaxHeightOption,
     MaxIterationsOption,
+    MaxWidthOption,
     ModeOption,
     NoMkdirOption,
     OptimizeOption,
@@ -36,6 +43,9 @@ from raster2svg.cli.options import (
     PathPrecisionOption,
     PresetOption,
     ReportPathOption,
+    ResizeOption,
+    ScaleOption,
+    SharpenOption,
     SimplifyOption,
     SpliceThresholdOption,
     ValidateSvgOption,
@@ -158,6 +168,16 @@ def batch_command(
     adaptive_window: AdaptiveWindowOption = None,
     adaptive_t: AdaptiveTOption = None,
     watershed_detail: WatershedDetailOption = None,
+    auto_orient: AutoOrientOption = None,
+    resize: ResizeOption = None,
+    max_width: MaxWidthOption = None,
+    max_height: MaxHeightOption = None,
+    scale: ScaleOption = None,
+    grayscale: GrayscaleOption = None,
+    denoise: DenoiseOption = None,
+    contrast: ContrastOption = None,
+    brightness: BrightnessOption = None,
+    sharpen: SharpenOption = None,
     overwrite: OverwriteOption = None,
     no_mkdir: NoMkdirOption = None,
     validate_svg: ValidateSvgOption = None,
@@ -208,22 +228,36 @@ def batch_command(
         watershed_detail=watershed_detail,
     )
 
+    preprocess_kwargs = {
+        "auto_orient": auto_orient,
+        "resize": resize,
+        "max_width": max_width,
+        "max_height": max_height,
+        "scale": scale,
+        "grayscale": grayscale,
+        "denoise": denoise,
+        "contrast": contrast,
+        "brightness": brightness,
+        "sharpen": sharpen,
+    }
+
     try:
         worker_count = resolve_jobs(jobs, len(paths))
         entries = build_entries(input_dir, paths, target_dir)
-        config, output_cfg = resolve_cli_options(
+        config, output_cfg, preprocess_cfg = resolve_cli_options(
             preset=preset,
             config_path=config_path,
             cli_values=cli_values,
             overwrite=overwrite,
             validate_svg=validate_svg,
             no_mkdir=no_mkdir,
+            preprocess_kwargs=preprocess_kwargs,
         )
     except Raster2SvgError as exc:
         _fail(exc)
 
     if show_config:
-        _print_resolved_config(config, output_cfg)
+        _print_resolved_config(config, output_cfg, preprocess_cfg)
         raise typer.Exit(0)
 
     stream: list[ConversionResult] = []
@@ -243,6 +277,7 @@ def batch_command(
                 entries,
                 config=config,
                 output=output_cfg,
+                preprocess=preprocess_cfg,
                 jobs=worker_count,
                 fail_fast=fail_fast,
                 dry_run=dry_run,
@@ -254,6 +289,7 @@ def batch_command(
             entries,
             config=config,
             output=output_cfg,
+            preprocess=preprocess_cfg,
             jobs=worker_count,
             fail_fast=fail_fast,
             dry_run=dry_run,

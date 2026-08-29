@@ -47,6 +47,27 @@ raster2svg engine capabilities
 raster2svg --help
 ```
 
+## Preprocessing
+
+Optional Pillow-based image preprocessing runs before tracing and is always
+reported in the resolved config (`--show-config`) and the conversion report
+(`preprocess` / `preprocess_applied`). A default run never re-encodes the
+image.
+
+| Flag | Effect |
+| --- | --- |
+| `--auto-orient` / `--no-auto-orient` | Apply EXIF orientation (default: on) |
+| `--resize WxH` | Fit within a box, aspect preserved (up- and down-scaling) |
+| `--max-width N` / `--max-height N` | Shrink only, aspect preserved |
+| `--scale F` | Scale both dimensions by factor `F` |
+| `--grayscale` / `--color` | Convert to grayscale (default: color) |
+| `--denoise` / `--no-denoise` | Conservative median speckle removal |
+| `--contrast F` / `--brightness F` | Adjust tone (1.0 = unchanged) |
+| `--sharpen` / `--no-sharpen` | Conservative unsharp mask |
+
+The same settings can be placed in a config file under `[preprocess]`; CLI
+flags override file values.
+
 ## Engine feature support
 
 `raster2svg` keeps a stable canonical configuration model and maps it onto the

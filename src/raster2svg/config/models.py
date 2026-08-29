@@ -133,12 +133,61 @@ class OutputConfig(BaseModel):
     create_directories: bool = True
 
 
+_RESIZE_RE = re.compile(r"^(\d+)[xX](\d+)$")
+
+
+def parse_resize(value: str) -> tuple[int, int]:
+    """Parse a ``WIDTHxHEIGHT`` string into a (width, height) pair."""
+    match = _RESIZE_RE.match(value.strip())
+    if match is None or int(match.group(1)) < 1 or int(match.group(2)) < 1:
+        raise ValueError(f"invalid resize size {value!r}; expected WIDTHxHEIGHT, e.g. 1920x1080")
+    return int(match.group(1)), int(match.group(2))
+
+
+class PreprocessConfig(BaseModel):
+    """Optional image preprocessing applied before tracing (PRD section 13).
+
+    All operations are explicit and deterministic; ``None`` / identity
+    values mean "leave that aspect untouched".
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    auto_orient: bool = True
+    resize: str | None = None
+    max_width: int | None = Field(default=None, ge=1)
+    max_height: int | None = Field(default=None, ge=1)
+    scale: float | None = Field(default=None, gt=0)
+    grayscale: bool = False
+    denoise: bool = False
+    contrast: float | None = Field(default=None, ge=0, le=10)
+    brightness: float | None = Field(default=None, ge=0, le=10)
+    sharpen: bool = False
+
+    @field_validator("resize")
+    @classmethod
+    def _validate_resize(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        parse_resize(value)
+        return value
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PreprocessConfig:
+        """Validate a plain dict, translating errors into ConfigError."""
+        try:
+            return cls.model_validate(data)
+        except ValidationError as exc:
+            raise _config_error_from_validation(exc) from exc
+
+
 class AppConfig(BaseModel):
     """Root configuration object (PRD section 20)."""
 
     model_config = ConfigDict(extra="forbid")
 
     conversion: ConversionConfig = Field(default_factory=ConversionConfig)
+    preprocess: PreprocessConfig = Field(default_factory=PreprocessConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
 
     @classmethod

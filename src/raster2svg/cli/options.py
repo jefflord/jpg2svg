@@ -13,7 +13,7 @@ from typing import Annotated, Any
 import typer
 
 from raster2svg.config.loader import load_config_file
-from raster2svg.config.models import ConversionConfig, OutputConfig
+from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
 from raster2svg.config.resolver import resolve_conversion_config
 
 PresetOption = Annotated[
@@ -179,6 +179,62 @@ WatershedDetailOption = Annotated[
     ),
 ]
 
+AutoOrientOption = Annotated[
+    bool | None,
+    typer.Option(
+        "--auto-orient/--no-auto-orient",
+        help="Apply EXIF orientation before tracing (default: on).",
+    ),
+]
+
+ResizeOption = Annotated[
+    str | None,
+    typer.Option(
+        "--resize",
+        help="Resize to fit within WxH, preserving aspect (e.g. 1920x1080).",
+    ),
+]
+
+MaxWidthOption = Annotated[
+    int | None,
+    typer.Option("--max-width", help="Shrink so the width is at most N pixels."),
+]
+
+MaxHeightOption = Annotated[
+    int | None,
+    typer.Option("--max-height", help="Shrink so the height is at most N pixels."),
+]
+
+ScaleOption = Annotated[
+    float | None,
+    typer.Option("--scale", help="Scale both dimensions by a factor (e.g. 0.5)."),
+]
+
+GrayscaleOption = Annotated[
+    bool | None,
+    typer.Option("--grayscale/--color", help="Convert the image to grayscale."),
+]
+
+DenoiseOption = Annotated[
+    bool | None,
+    typer.Option("--denoise/--no-denoise", help="Apply a conservative speckle denoiser."),
+]
+
+ContrastOption = Annotated[
+    float | None,
+    typer.Option("--contrast", help="Contrast factor, 1.0 = unchanged, 0-10."),
+]
+
+BrightnessOption = Annotated[
+    float | None,
+    typer.Option("--brightness", help="Brightness factor, 1.0 = unchanged, 0-10."),
+]
+
+SharpenOption = Annotated[
+    bool | None,
+    typer.Option("--sharpen/--no-sharpen", help="Apply a conservative unsharp-mask."),
+]
+
 OverwriteOption = Annotated[
     bool | None,
     typer.Option(
@@ -292,6 +348,44 @@ def resolve_output(
     )
 
 
+def resolve_preprocess(
+    *,
+    auto_orient: bool | None = None,
+    resize: str | None = None,
+    max_width: int | None = None,
+    max_height: int | None = None,
+    scale: float | None = None,
+    grayscale: bool | None = None,
+    denoise: bool | None = None,
+    contrast: float | None = None,
+    brightness: float | None = None,
+    sharpen: bool | None = None,
+    file_values: dict[str, Any] | None = None,
+) -> PreprocessConfig:
+    """Resolve preprocessing: CLI flag > config file [preprocess] > default (PRD 8, 13)."""
+    file_values = file_values or {}
+
+    def pick(cli_value: Any, key: str, default: Any) -> Any:
+        if cli_value is not None:
+            return cli_value
+        return file_values.get(key, default)
+
+    data = {
+        "auto_orient": bool(pick(auto_orient, "auto_orient", True)),
+        "resize": pick(resize, "resize", None),
+        "max_width": pick(max_width, "max_width", None),
+        "max_height": pick(max_height, "max_height", None),
+        "scale": pick(scale, "scale", None),
+        "grayscale": bool(pick(grayscale, "grayscale", False)),
+        "denoise": bool(pick(denoise, "denoise", False)),
+        "contrast": pick(contrast, "contrast", None),
+        "brightness": pick(brightness, "brightness", None),
+        "sharpen": bool(pick(sharpen, "sharpen", False)),
+    }
+    # from_dict translates validation errors into a ConfigError (exit code 2).
+    return PreprocessConfig.from_dict(data)
+
+
 def resolve_cli_options(
     *,
     preset: str | None,
@@ -300,13 +394,14 @@ def resolve_cli_options(
     overwrite: bool | None,
     validate_svg: bool | None,
     no_mkdir: bool | None,
-) -> tuple[ConversionConfig, OutputConfig]:
+    preprocess_kwargs: dict[str, Any] | None = None,
+) -> tuple[ConversionConfig, OutputConfig, PreprocessConfig]:
     """Apply PRD section 8 precedence for one CLI invocation.
 
     Raises Raster2SvgError subclasses (ConfigError, UnknownPresetError, ...)
     for invalid input.
     """
-    file_cfg: dict[str, Any] = {"conversion": {}, "output": {}}
+    file_cfg: dict[str, Any] = {"conversion": {}, "preprocess": {}, "output": {}}
     if config_path is not None:
         file_cfg = load_config_file(config_path)
 
@@ -316,4 +411,8 @@ def resolve_cli_options(
         cli_values=cli_values,
     )
     output_cfg = resolve_output(overwrite, validate_svg, no_mkdir, file_cfg.get("output") or {})
-    return config, output_cfg
+    preprocess_cfg = resolve_preprocess(
+        **(preprocess_kwargs or {}),
+        file_values=file_cfg.get("preprocess") or {},
+    )
+    return config, output_cfg, preprocess_cfg

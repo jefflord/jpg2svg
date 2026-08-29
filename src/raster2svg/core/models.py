@@ -28,4 +28,6 @@ class ConversionResult:
     input_format: str | None = None
     input_width: int | None = None
     input_height: int | None = None
+    preprocess: dict[str, Any] = field(default_factory=dict)
+    preprocess_applied: list[str] = field(default_factory=list)
     error: str | None = None

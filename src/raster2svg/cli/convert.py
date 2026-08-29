@@ -17,18 +17,25 @@ from raster2svg.cli.options import (
     AdaptiveOption,
     AdaptiveTOption,
     AdaptiveWindowOption,
+    AutoOrientOption,
     BinaryThresholdOption,
+    BrightnessOption,
     ClusteringOption,
     ColorPrecisionOption,
     ConfigPathOption,
+    ContrastOption,
     CornerThresholdOption,
+    DenoiseOption,
     DryRunOption,
     FilterSpeckleOption,
+    GrayscaleOption,
     HierarchicalOption,
     LayerDifferenceOption,
     LengthThresholdOption,
     MaxColorsOption,
+    MaxHeightOption,
     MaxIterationsOption,
+    MaxWidthOption,
     ModeOption,
     NoMkdirOption,
     OptimizeOption,
@@ -38,6 +45,9 @@ from raster2svg.cli.options import (
     PathPrecisionOption,
     PresetOption,
     ReportPathOption,
+    ResizeOption,
+    ScaleOption,
+    SharpenOption,
     SimplifyOption,
     SpliceThresholdOption,
     ValidateSvgOption,
@@ -45,7 +55,7 @@ from raster2svg.cli.options import (
     build_cli_values,
     resolve_cli_options,
 )
-from raster2svg.config.models import ConversionConfig, OutputConfig
+from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
 from raster2svg.core.errors import ConfigError, Raster2SvgError
 from raster2svg.core.models import STATUS_DRY_RUN
 from raster2svg.output.reports import write_report
@@ -62,7 +72,11 @@ def _fail(exc: Raster2SvgError) -> NoReturn:
     raise typer.Exit(exc.exit_code)
 
 
-def _print_resolved_config(config: ConversionConfig, output: OutputConfig | None = None) -> None:
+def _print_resolved_config(
+    config: ConversionConfig,
+    output: OutputConfig | None = None,
+    preprocess: PreprocessConfig | None = None,
+) -> None:
     data = config.model_dump(mode="json")
     table = Table(title="Resolved configuration")
     table.add_column("setting")
@@ -73,6 +87,14 @@ def _print_resolved_config(config: ConversionConfig, output: OutputConfig | None
     if all(value is None for value in data.values()):
         table.add_row("(none)", "all engine defaults")
     console.print(table)
+
+    if preprocess is not None:
+        pre_table = Table(title="Resolved preprocessing")
+        pre_table.add_column("setting")
+        pre_table.add_column("value")
+        for key, value in preprocess.model_dump().items():
+            pre_table.add_row(key, str(value))
+        console.print(pre_table)
 
     if output is not None:
         out_table = Table(title="Resolved output settings")
@@ -123,6 +145,16 @@ def convert_command(
     adaptive_window: AdaptiveWindowOption = None,
     adaptive_t: AdaptiveTOption = None,
     watershed_detail: WatershedDetailOption = None,
+    auto_orient: AutoOrientOption = None,
+    resize: ResizeOption = None,
+    max_width: MaxWidthOption = None,
+    max_height: MaxHeightOption = None,
+    scale: ScaleOption = None,
+    grayscale: GrayscaleOption = None,
+    denoise: DenoiseOption = None,
+    contrast: ContrastOption = None,
+    brightness: BrightnessOption = None,
+    sharpen: SharpenOption = None,
     overwrite: OverwriteOption = None,
     no_mkdir: NoMkdirOption = None,
     validate_svg: ValidateSvgOption = None,
@@ -168,20 +200,34 @@ def convert_command(
         watershed_detail=watershed_detail,
     )
 
+    preprocess_kwargs = {
+        "auto_orient": auto_orient,
+        "resize": resize,
+        "max_width": max_width,
+        "max_height": max_height,
+        "scale": scale,
+        "grayscale": grayscale,
+        "denoise": denoise,
+        "contrast": contrast,
+        "brightness": brightness,
+        "sharpen": sharpen,
+    }
+
     try:
-        config, output_cfg = resolve_cli_options(
+        config, output_cfg, preprocess_cfg = resolve_cli_options(
             preset=preset,
             config_path=config_path,
             cli_values=cli_values,
             overwrite=overwrite,
             validate_svg=validate_svg,
             no_mkdir=no_mkdir,
+            preprocess_kwargs=preprocess_kwargs,
         )
     except Raster2SvgError as exc:
         _fail(exc)
 
     if show_config:
-        _print_resolved_config(config, output_cfg)
+        _print_resolved_config(config, output_cfg, preprocess_cfg)
         raise typer.Exit(0)
 
     converter = Converter()
@@ -191,6 +237,7 @@ def convert_command(
             output_path,
             config=config,
             output=output_cfg,
+            preprocess=preprocess_cfg,
             dry_run=dry_run,
         )
     except Raster2SvgError as exc:

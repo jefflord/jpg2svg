@@ -14,7 +14,7 @@ import typer
 from rich.console import Console
 
 from raster2svg.cli.convert import _fail, _print_resolved_config
-from raster2svg.cli.options import resolve_output
+from raster2svg.cli.options import resolve_output, resolve_preprocess
 from raster2svg.config.loader import load_config_file
 from raster2svg.config.presets import available_presets, get_preset
 from raster2svg.config.resolver import resolve_conversion_config
@@ -80,8 +80,13 @@ def config_show_command(
     except Raster2SvgError as exc:
         _fail(exc)
 
+    preprocess_cfg = resolve_preprocess(file_values=(file_cfg or {}).get("preprocess") or {})
+
     if out_format == "json":
-        payload: dict[str, object] = {"conversion": resolved.model_dump(mode="json")}
+        payload: dict[str, object] = {
+            "conversion": resolved.model_dump(mode="json"),
+            "preprocess": preprocess_cfg.model_dump(mode="json"),
+        }
         if file_cfg is not None:
             payload["output"] = (file_cfg or {}).get("output")
         console.print(json.dumps(payload, indent=2))
@@ -92,7 +97,7 @@ def config_show_command(
         output_values = (file_cfg or {}).get("output")
         if output_values:
             output_cfg = resolve_output(None, None, None, dict(output_values))
-    _print_resolved_config(resolved, output_cfg)
+    _print_resolved_config(resolved, output_cfg, preprocess_cfg)
 
 
 @config_app.command("init")
@@ -197,6 +202,18 @@ def _render_toml(preset_name: str | None) -> str:
             lines.append(f"# {field} = {example}  # {doc}")
 
     lines += [
+        "",
+        "[preprocess]",
+        "# auto_orient = true  # apply EXIF orientation before tracing",
+        '# resize = "1920x1080"  # fit within WxH, preserving aspect',
+        "# max_width = 1920  # shrink so width <= N",
+        "# max_height = 1080  # shrink so height <= N",
+        "# scale = 0.5  # scale both dimensions by a factor",
+        "# grayscale = false",
+        "# denoise = false",
+        "# contrast = 1.2  # 1.0 = unchanged, range 0-10",
+        "# brightness = 1.1  # 1.0 = unchanged, range 0-10",
+        "# sharpen = false",
         "",
         "[output]",
         "# overwrite = false",

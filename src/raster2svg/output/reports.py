@@ -29,6 +29,8 @@ def _result_payload(result: ConversionResult) -> dict[str, Any]:
         "tool_version": result.tool_version,
         "engine": f"{result.engine_name} {result.engine_version}",
         "config": result.config,
+        "preprocess": result.preprocess,
+        "preprocess_applied": result.preprocess_applied,
     }
 
 

@@ -15,7 +15,7 @@ from typing import Any
 from PIL import Image, UnidentifiedImageError
 
 from raster2svg._version import __version__
-from raster2svg.config.models import ConversionConfig, OutputConfig
+from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
 from raster2svg.config.resolver import resolve_conversion_config
 from raster2svg.core.capabilities import EngineCapabilities
 from raster2svg.core.errors import InputError, OutputError
@@ -24,6 +24,7 @@ from raster2svg.engines.base import TracingEngine
 from raster2svg.engines.vtracer_engine import VTracerEngine
 from raster2svg.output.atomic_write import atomic_write_text
 from raster2svg.output.svg import validate_svg
+from raster2svg.preprocess.image import apply_preprocessing
 from raster2svg.utils.paths import default_output_path, image_format_hint, validate_input_path
 
 
@@ -53,6 +54,7 @@ class Converter:
         *,
         config: ConversionConfig | None = None,
         output: OutputConfig | None = None,
+        preprocess: PreprocessConfig | None = None,
         dry_run: bool = False,
     ) -> ConversionResult:
         """Convert one raster image to SVG.
@@ -63,12 +65,19 @@ class Converter:
         input_path = Path(input_path)
         output_cfg = output or OutputConfig()
         conversion_cfg = _apply_preset(config or ConversionConfig())
+        preprocess_cfg = preprocess or PreprocessConfig()
 
         input_path = validate_input_path(input_path)
         target = Path(output_path) if output_path is not None else default_output_path(input_path)
         width, height, fmt = self._inspect_input(input_path)
         self._check_output_path(target, output_cfg)
         image_bytes = input_path.read_bytes()
+
+        prepared = apply_preprocessing(
+            image_bytes,
+            image_format_hint(input_path) or "unknown",
+            preprocess_cfg,
+        )
 
         if dry_run:
             return ConversionResult(
@@ -83,12 +92,14 @@ class Converter:
                 input_format=fmt,
                 input_width=width,
                 input_height=height,
+                preprocess=_preprocess_dict(preprocess_cfg),
+                preprocess_applied=list(prepared.applied),
             )
 
         started = time.perf_counter()
         svg = self._engine.trace(
-            image_bytes=image_bytes,
-            image_format=image_format_hint(input_path),
+            image_bytes=prepared.image_bytes,
+            image_format=prepared.image_format,
             config=conversion_cfg,
         )
         if output_cfg.validate_svg:
@@ -113,6 +124,8 @@ class Converter:
             input_format=fmt,
             input_width=width,
             input_height=height,
+            preprocess=_preprocess_dict(preprocess_cfg),
+            preprocess_applied=list(prepared.applied),
         )
 
     @staticmethod
@@ -161,4 +174,8 @@ def _apply_preset(config: ConversionConfig) -> ConversionConfig:
 
 
 def _config_dict(config: ConversionConfig) -> dict[str, Any]:
+    return config.model_dump(mode="json")
+
+
+def _preprocess_dict(config: PreprocessConfig) -> dict[str, Any]:
     return config.model_dump(mode="json")
