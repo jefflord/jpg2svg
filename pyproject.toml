@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "raster2svg"
+version = "0.1.0"
+description = "Raster image to SVG converter CLI powered by VTracer"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Jeff" }]
+keywords = ["svg", "vector", "raster", "tracing", "vtracer", "image", "cli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics",
+    "Typing :: Typed",
+]
+dependencies = [
+    "Pillow>=10.3",
+    "platformdirs>=4.0",
+    "pydantic>=2.7",
+    "rich>=13.7",
+    "typer>=0.12",
+    "vtracer>=0.6.15",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.10",
+    "pytest>=8.2",
+    "ruff>=0.4",
+]
+
+[project.scripts]
+raster2svg = "raster2svg.cli.app:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/raster2svg"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "E",
+    "F",
+    "I",
+    "SIM",
+    "UP",
+    "W",
+]
+
+[tool.mypy]
+files = ["src", "tests"]
+python_version = "3.12"
+disallow_untyped_defs = true
+warn_return_any = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+# vtracer ships no py.typed marker / type stubs.
+module = "vtracer"
+ignore_missing_imports = true
