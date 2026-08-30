@@ -29,28 +29,24 @@ raster2svg.exe   (launcher)          <- Get-Process raster2svg returns THIS one
    └─ python.exe (real server)       <- this is what LISTENs on the port
 ```
 
-### Start (canonical port is 9921)
+### Canonical way: use `scripts\web-server.ps1` (always verify, never assume)
 ```powershell
-raster2svg web                                             # Ctrl+C to stop
-raster2svg web --sample path\to\file.svg                   # also enables the "Sample" button
+.\scripts\web-server.ps1 status   -Port 9921
+.\scripts\web-server.ps1 start    -Port 9921 [-Sample tests\golden\logo_spline.svg]
+.\scripts\web-server.ps1 restart  -Port 9921 [-Sample tests\golden\logo_spline.svg]
+.\scripts\web-server.ps1 stop     -Port 9921
 ```
-
-### Is it running? (ALWAYS verify — never assume)
-```powershell
-netstat -ano | findstr :9921 | findstr LISTENING          # shows the listener PID
-Get-Process raster2svg -ErrorAction SilentlyContinue      # non-null => an instance is up
-Invoke-WebRequest http://127.0.0.1:9921/ -UseBasicParsing # HTTP 200 => serving
-```
-
-### Stop it — kill the WHOLE tree, not just the listener
-The listener is the *grandchild*; killing only its PID orphans the parents. Kill the
-top-level launcher with `/T` so the entire tree terminates:
-```powershell
-# kill every running instance + its children:
-Get-Process raster2svg -ErrorAction SilentlyContinue | ForEach-Object { taskkill /F /T /PID $_.Id }
-# or a single instance by its launcher PID:
-taskkill /F /T /PID <raster2svg.exe-PID>
-```
+- `stop` kills every `raster2svg` launcher tree (and any orphaned listener on the port),
+  then waits up to 5 s per attempt (3 attempts) until the port is actually released;
+  it fails with the surviving PIDs otherwise. It never hangs.
+- `start` launches detached (logs: `%TEMP%\r2s-web.log` / `r2s-web.err`) and polls up to
+  15 s for `GET /api/info` → HTTP 200 before reporting success.
+- Foreground alternative (Ctrl+C to stop): `raster2svg web [--sample path\to\file.svg]`.
+- Manual fallback (if the script is unavailable):
+  ```powershell
+  netstat -ano | findstr :9921 | findstr LISTENING   # listener PID
+  Get-Process raster2svg | ForEach-Object { taskkill /F /T /PID $_.Id }   # kill the tree
+  ```
 
 ### Gotchas (these have cost time)
 - **The UI is cached at startup.** `WebServer` reads `static/index.html` once in `__init__`
@@ -58,21 +54,14 @@ taskkill /F /T /PID <raster2svg.exe-PID>
   refresh is NOT enough (CSS/JS are inlined into index.html).
 - **Use port 9921.** Don't spin up ad-hoc ports (9922, 9923, …) unless you intentionally
   need a second instance, and clean them up when done.
-- **Don't leave stray servers.** Check for existing instances before starting; kill test
-  servers after. Multiple instances → port conflicts + confusion.
-- **Detached launch + `--sample` path with spaces breaks.** `Start-Process -ArgumentList`
-  splits a space-containing path into extra arguments ("Got unexpected extra argument").
-  Use a space-free path (copy the file to `%TEMP%` first) or launch in the foreground.
+- **Don't leave stray servers.** Check for existing instances before starting (`status`);
+  stop test servers after. Multiple instances → port conflicts + confusion.
+- **`--sample` path with spaces.** `web-server.ps1` quotes the path for you; if you launch
+  detached by hand, `Start-Process -ArgumentList` will split a space-containing path into
+  extra arguments ("Got unexpected extra argument") — use a space-free path.
 - **The sandbox bash tool kills foreground commands on timeout.** To keep a server alive
-  across tool calls, launch detached, then verify it's listening before proceeding:
-  ```powershell
-  $s = Start-Process -FilePath ".venv\Scripts\raster2svg.exe" `
-         -ArgumentList @("web","--port","9921") `
-         -RedirectStandardOutput "$env:TEMP\r2s.log" `
-         -RedirectStandardError  "$env:TEMP\r2s.err" `
-         -PassThru -WindowStyle Hidden
-  # VERIFY:  netstat -ano | findstr :9921 | findstr LISTENING
-  ```
+  across tool calls, use `web-server.ps1 start` (detached + verified) instead of running
+  `raster2svg web` in the foreground.
 
 ## Testing the UI without converting an image
 `--sample <path-to-svg>` exposes `GET /api/sample` and enables the **Sample** button, so
