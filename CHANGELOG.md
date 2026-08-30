@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `convert`/`batch` option help now clearly marks engine-dependent advanced
+  options (`--simplify`, `--palette`, `--palette-file`, `--max-colors`,
+  `--optimize`, `--binary-threshold`, `--adaptive`, `--adaptive-window`,
+  `--adaptive-t`, `--watershed-detail`) with `[UNAVAILABLE - needs VTracer 1.0]`
+  when the installed engine doesn't support them.
+- `raster2svg engine capabilities` now lists the advanced options that are and
+  are not available on the installed engine.
+- The `UnsupportedFeatureError` hint now points to VTracer 1.0.
+
 ## [0.3.0] - 2026-08-29
 
 ### Added

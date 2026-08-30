@@ -21,7 +21,7 @@ from raster2svg.cli.convert import convert_command
 from raster2svg.cli.help import make_group_help_command, show_help_for
 from raster2svg.cli.inspect import inspect_command
 from raster2svg.cli.preset import preset_app
-from raster2svg.core.capabilities import detect_vtracer_capabilities
+from raster2svg.core.capabilities import detect_vtracer_capabilities, split_engine_dependent
 from raster2svg.core.errors import Raster2SvgError
 from raster2svg.utils.logging import configure_logging
 
@@ -81,8 +81,19 @@ def version_command() -> None:
 
 def _list_caps_command() -> None:
     caps = detect_vtracer_capabilities()
+    available, unavailable = split_engine_dependent(caps)
     typer.echo(f"engine: {caps.name} {caps.version}")
     typer.echo(f"supported parameters: {', '.join(sorted(caps.supported_params))}")
+    if unavailable:
+        typer.echo()
+        typer.echo("Advanced options NOT available on this engine (needs VTracer 1.0):")
+        for option in unavailable:
+            typer.echo(f"  {option}")
+    if available:
+        typer.echo()
+        typer.echo("Advanced options available on this engine:")
+        for option in available:
+            typer.echo(f"  {option}")
 
 
 engine_app = typer.Typer(

@@ -103,9 +103,10 @@ class VTracerEngine:
                 f"{self.capabilities.version} does not support: "
                 f"{', '.join(unsupported)}.",
                 hint=(
-                    "Remove these options, or install a VTracer release that "
-                    "exposes them. Run `raster2svg engine capabilities` to "
-                    "see what the installed engine supports."
+                    "These options need VTracer 1.0 (not yet on PyPI). Remove "
+                    "them, or upgrade once 1.0 is released. Run "
+                    "`raster2svg engine capabilities` to see what the "
+                    "installed engine supports."
                 ),
             )
         return kwargs

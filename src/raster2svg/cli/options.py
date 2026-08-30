@@ -16,6 +16,24 @@ from raster2svg.config.loader import load_config_file
 from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
 from raster2svg.config.resolver import resolve_conversion_config
 from raster2svg.config.user_config import load_user_config
+from raster2svg.core.capabilities import detect_vtracer_capabilities
+
+# Resolved once per process so the option help can state precisely which
+# advanced options the installed tracing engine can honour (PRD section 21).
+_ENGINE = detect_vtracer_capabilities()
+
+
+def _option_help(text: str, requires: str | None = None) -> str:
+    """Return option help, flagging options the installed engine cannot honour.
+
+    ``requires`` is the vtracer parameter the option depends on (see
+    ``capabilities.ENGINE_DEPENDENT_OPTIONS``). When the installed engine lacks
+    it, the help carries an obvious marker instead of a vague caveat.
+    """
+    if requires is None or _ENGINE.supports(requires):
+        return text
+    return f"[UNAVAILABLE - needs VTracer 1.0] {text}"
+
 
 PresetOption = Annotated[
     str | None,
@@ -101,7 +119,7 @@ SimplifyOption = Annotated[
     float | None,
     typer.Option(
         "--simplify",
-        help="Curve simplification tolerance (>0). May be unsupported by the installed engine.",
+        help=_option_help("Curve simplification tolerance (>0).", requires="simplify"),
     ),
 ]
 
@@ -109,8 +127,7 @@ PaletteOption = Annotated[
     str | None,
     typer.Option(
         "--palette",
-        help="Comma-separated hex colors, e.g. '#111,#eee'. "
-        "May be unsupported by the installed engine.",
+        help=_option_help("Comma-separated hex colors, e.g. '#111,#eee'.", requires="palette"),
     ),
 ]
 
@@ -118,7 +135,7 @@ PaletteFileOption = Annotated[
     Path | None,
     typer.Option(
         "--palette-file",
-        help="File with one hex color per line. May be unsupported by the installed engine.",
+        help=_option_help("File with one hex color per line.", requires="palette"),
     ),
 ]
 
@@ -126,7 +143,7 @@ MaxColorsOption = Annotated[
     int | None,
     typer.Option(
         "--max-colors",
-        help="Quantize to N colors. May be unsupported by the installed engine.",
+        help=_option_help("Quantize to N colors.", requires="max_colors"),
     ),
 ]
 
@@ -134,7 +151,7 @@ OptimizeOption = Annotated[
     int | None,
     typer.Option(
         "--optimize",
-        help="Optimization level 0-2. May be unsupported by the installed engine.",
+        help=_option_help("Optimization level 0-2.", requires="optimize"),
     ),
 ]
 
@@ -143,7 +160,7 @@ BinaryThresholdOption = Annotated[
     typer.Option(
         "--binary-threshold",
         "--threshold",
-        help="Binary threshold 0-255. May be unsupported by the installed engine.",
+        help=_option_help("Binary threshold 0-255.", requires="binary_threshold"),
     ),
 ]
 
@@ -151,8 +168,7 @@ AdaptiveOption = Annotated[
     bool | None,
     typer.Option(
         "--adaptive/--no-adaptive",
-        help="Adaptive thresholding; implies --clustering bw. "
-        "May be unsupported by the installed engine.",
+        help=_option_help("Adaptive thresholding; implies --clustering bw.", requires="adaptive"),
     ),
 ]
 
@@ -160,7 +176,7 @@ AdaptiveWindowOption = Annotated[
     int | None,
     typer.Option(
         "--adaptive-window",
-        help="Adaptive window size (>=3). May be unsupported by the installed engine.",
+        help=_option_help("Adaptive window size (>=3).", requires="adaptive_window"),
     ),
 ]
 
@@ -168,7 +184,7 @@ AdaptiveTOption = Annotated[
     int | None,
     typer.Option(
         "--adaptive-t",
-        help="Adaptive threshold constant (>=0). May be unsupported by the installed engine.",
+        help=_option_help("Adaptive threshold constant (>=0).", requires="adaptive_t"),
     ),
 ]
 
@@ -176,7 +192,7 @@ WatershedDetailOption = Annotated[
     int | None,
     typer.Option(
         "--watershed-detail",
-        help="Watershed detail 0-255. May be unsupported by the installed engine.",
+        help=_option_help("Watershed detail 0-255.", requires="watershed_detail"),
     ),
 ]
 

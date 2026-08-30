@@ -119,6 +119,13 @@ def test_engine_capabilities_command() -> None:
     assert result.exit_code == 0
     assert "vtracer" in result.output
     assert "colormode" in result.output
+    # Advanced options are always surfaced, whether available or not.
+    assert "--max-colors" in result.output
+    # On the pinned vtracer 0.6.x engine these options are not yet available.
+    from raster2svg.core.capabilities import detect_vtracer_capabilities
+
+    if not detect_vtracer_capabilities().supports("max_colors"):
+        assert "VTracer 1.0" in result.output
 
 
 def test_show_config_prints_resolved_values() -> None:
