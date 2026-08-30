@@ -46,6 +46,7 @@ raster2svg convert photo.jpg --show-config
 raster2svg inspect photo.jpg
 raster2svg --verbose convert photo.jpg --log-file build\conversion.log
 raster2svg engine capabilities
+raster2svg web --open
 raster2svg --help
 ```
 
@@ -147,6 +148,22 @@ image.
 The same settings can be placed in a config file under `[preprocess]`; CLI
 flags override file values.
 
+## Web interface
+
+`raster2svg web` starts a local HTTP server that hosts a single-page app for
+real-time conversion: upload an image once, tweak the options, watch the SVG
+update live, and download the result. It reuses the same engine, presets, and
+preprocessing as `convert`, so the output matches the CLI exactly. There are no
+new runtime dependencies — the server is stdlib `http.server`.
+
+```powershell
+raster2svg web                     # http://localhost:9921/ (loopback)
+raster2svg web --open              # also open the browser on startup
+raster2svg web --port 8080         # a different port
+```
+
+By default it binds to loopback only. Press `Ctrl+C` to stop.
+
 ## Engine feature support
 
 `raster2svg` keeps a stable canonical configuration model and maps it onto the
@@ -194,6 +211,8 @@ settings; vtracer 0.6.x exposes no native preset API.
 - [`docs/presets.md`](docs/presets.md) — built-in presets and custom presets.
 - [`docs/architecture.md`](docs/architecture.md) — how the core, config, and
   engine-adapter layers fit together.
+- [`raster2svg_web_prd.md`](raster2svg_web_prd.md) — the web interface spec
+  (the `raster2svg web` command).
 - [`examples/`](examples/) — ready-to-copy sample configs.
 
 ## Development

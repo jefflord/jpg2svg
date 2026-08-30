@@ -24,6 +24,7 @@ from raster2svg.cli.preset import preset_app
 from raster2svg.core.capabilities import detect_vtracer_capabilities, split_engine_dependent
 from raster2svg.core.errors import Raster2SvgError
 from raster2svg.utils.logging import configure_logging
+from raster2svg.web.cli import web_command
 
 app = typer.Typer(
     name="raster2svg",
@@ -33,7 +34,17 @@ app = typer.Typer(
 )
 
 # Extend when new top-level commands are added.
-KNOWN_COMMANDS = {"batch", "convert", "config", "engine", "inspect", "preset", "version", "help"}
+KNOWN_COMMANDS = {
+    "batch",
+    "convert",
+    "config",
+    "engine",
+    "inspect",
+    "preset",
+    "version",
+    "web",
+    "help",
+}
 
 # Global options that take a value (PRD section 18).
 _GLOBAL_VALUE_OPTIONS = {"--log-level", "--log-file"}
@@ -134,6 +145,7 @@ app.command("help")(help_command)
 app.command("batch")(batch_command)
 app.command("convert")(convert_command)
 app.command("inspect")(inspect_command)
+app.command("web")(web_command)
 engine_app.command("help")(make_group_help_command("engine"))
 app.add_typer(engine_app, name="engine")
 app.add_typer(config_app, name="config")

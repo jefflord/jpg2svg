@@ -113,9 +113,9 @@ def _svg_fill_count(path: Path) -> int:
     root = ET.fromstring(path.read_text(encoding="utf-8"))
     return len(
         {
-            el.get("fill")
+            fill
             for el in root.iter()
-            if el.get("fill") and el.get("fill").lower() != "none"
+            if (fill := el.get("fill")) and fill.lower() != "none"
         }
     )
 

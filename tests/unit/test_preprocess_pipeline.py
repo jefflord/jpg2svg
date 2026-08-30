@@ -39,6 +39,7 @@ def _colorful_jpeg(seed: int = 1) -> bytes:
     rng = random.Random(seed)
     img = Image.new("RGB", (32, 32))
     px = img.load()
+    assert px is not None
     for y in range(32):
         for x in range(32):
             px[x, y] = (rng.randrange(256), rng.randrange(256), rng.randrange(256))
@@ -51,6 +52,7 @@ def _colorful_rgba(seed: int = 2) -> bytes:
     rng = random.Random(seed)
     img = Image.new("RGBA", (32, 32))
     px = img.load()
+    assert px is not None
     for y in range(32):
         for x in range(32):
             px[x, y] = (rng.randrange(256), rng.randrange(256), rng.randrange(256), 128)
@@ -61,7 +63,9 @@ def _colorful_rgba(seed: int = 2) -> bytes:
 
 def _distinct_colors(data: bytes) -> int:
     with Image.open(io.BytesIO(data)) as image:
-        return len(image.getcolors(maxcolors=100000))
+        colors = image.getcolors(maxcolors=100000)
+        assert colors is not None
+        return len(colors)
 
 
 def test_parse_resize_accepts_common_forms() -> None:
@@ -252,8 +256,12 @@ def test_pre_max_colors_preserves_alpha() -> None:
     result = apply_preprocessing(_colorful_rgba(), "png", PreprocessConfig(pre_max_colors=6))
     with Image.open(io.BytesIO(result.image_bytes)) as image:
         assert image.mode == "RGBA"
-        assert image.getpixel((16, 16))[3] == 128
-        assert len(image.convert("RGB").getcolors(maxcolors=100000)) <= 6
+        pixel = image.getpixel((16, 16))
+        assert isinstance(pixel, tuple)
+        assert pixel[3] == 128
+        colors = image.convert("RGB").getcolors(maxcolors=100000)
+        assert colors is not None
+        assert len(colors) <= 6
 
 
 def test_pre_max_colors_out_of_range_is_rejected() -> None:

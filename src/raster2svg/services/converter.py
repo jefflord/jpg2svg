@@ -141,6 +141,33 @@ class Converter:
             preprocess_applied=list(prepared.applied),
         )
 
+    def convert_bytes(
+        self,
+        image_bytes: bytes,
+        image_format: str,
+        *,
+        config: ConversionConfig | None = None,
+        preprocess: PreprocessConfig | None = None,
+    ) -> tuple[str, list[str]]:
+        """Convert in-memory image bytes to an SVG string without touching disk.
+
+        Reuses the exact preprocessing + tracing pipeline of :meth:`convert`,
+        but takes raw bytes and returns the SVG text plus the list of
+        preprocessing operations that were applied. Used by the web interface
+        for real-time preview; the file-based :meth:`convert` stays untouched.
+
+        Raises a subclass of Raster2SvgError on any failure.
+        """
+        conversion_cfg = _apply_preset(config or ConversionConfig())
+        preprocess_cfg = preprocess or PreprocessConfig()
+        prepared = apply_preprocessing(image_bytes, image_format, preprocess_cfg)
+        svg = self._engine.trace(
+            image_bytes=prepared.image_bytes,
+            image_format=prepared.image_format,
+            config=conversion_cfg,
+        )
+        return svg, list(prepared.applied)
+
     @staticmethod
     def _inspect_input(path: Path) -> tuple[int, int, str]:
         """Decode the image to verify it and read dimensions (PRD 5.3)."""

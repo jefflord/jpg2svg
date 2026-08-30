@@ -9,6 +9,8 @@ from raster2svg.config.models import (
 )
 from raster2svg.services.converter import Converter
 from raster2svg.services.inspector import ImageInspection, inspect_image
+from raster2svg.web.server import WebServer
+from raster2svg.web.session import SessionStore
 
 __all__ = [
     "AppConfig",
@@ -17,6 +19,8 @@ __all__ = [
     "ImageInspection",
     "OutputConfig",
     "PreprocessConfig",
+    "SessionStore",
+    "WebServer",
     "__version__",
     "inspect_image",
 ]

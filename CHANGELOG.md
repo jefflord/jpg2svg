@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-29
+
 ### Added
 
+- `raster2svg web`: a local, browser-based live converter (see
+  `raster2svg_web_prd.md`). `raster2svg web` starts a loopback HTTP server
+  (default `http://localhost:9921/`) hosting a single-page app to upload an
+  image once, tweak options, preview the SVG live, and download it.
+  - `--host` / `--port` select the bind target (defaults `127.0.0.1:9921`).
+  - `--open` opens the browser on startup.
+  - No new runtime dependencies: stdlib `http.server` + a self-contained HTML
+    page. Reuses the same engine, presets, and preprocessing as `convert`.
+  - In-memory upload sessions (bounded in count and bytes, 30-minute TTL).
 - `--pre-max-colors N` (1-256): cap the raster to at most N colors in the
   preprocessor (Pillow, no dithering) before tracing. Distinct from the
   engine-side `--max-colors` (VTracer-native, needs VTracer 1.0). Also settable
@@ -104,7 +115,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Conversion reports (JSON), dry runs, overwrite protection, and atomic writes.
 - `engine capabilities` introspection of the installed VTracer version.
 
-[Unreleased]: https://github.com/jefflord/jpg2svg/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/jefflord/jpg2svg/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/jefflord/jpg2svg/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/jefflord/jpg2svg/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/jefflord/jpg2svg/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/jefflord/jpg2svg/releases/tag/v0.1.0

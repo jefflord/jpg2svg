@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>raster2svg &mdash; live converter</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1d212b;
+    --border: #2a2f3a;
+    --text: #e6e8ee;
+    --muted: #9aa3b2;
+    --accent: #4f8cff;
+    --accent-2: #6ea1ff;
+    --star: #ffcf5c;
+    --ok: #46c08a;
+    --err: #ff6b6b;
+    --radius: 10px;
+    --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  }
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--panel);
+    position: sticky; top: 0; z-index: 5;
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+  header .sub { color: var(--muted); font-weight: 400; font-size: 14px; }
+  .engine { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  main {
+    display: grid; grid-template-columns: minmax(320px, 460px) 1fr;
+    gap: 16px; padding: 16px 20px; align-items: start;
+  }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
+
+  /* ---- left: controls ---- */
+  .upload {
+    border: 2px dashed var(--border); border-radius: var(--radius); padding: 18px;
+    text-align: center; color: var(--muted); cursor: pointer; transition: border-color .15s, background .15s;
+    margin-bottom: 14px;
+  }
+  .upload:hover, .upload.drag { border-color: var(--accent); background: var(--panel-2); }
+  .upload button {
+    background: var(--accent); color: #06101f; border: 0; padding: 6px 12px;
+    border-radius: 8px; font-weight: 600; cursor: pointer; margin-left: 4px;
+  }
+  .upload-status { margin-top: 8px; font-size: 12px; color: var(--ok); font-family: var(--mono); min-height: 14px; }
+
+  fieldset {
+    border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px 12px;
+    margin: 0 0 14px; background: var(--panel);
+  }
+  fieldset.legend-star { border-color: rgba(255,207,92,.4); }
+  legend { font-weight: 650; padding: 0 6px; color: var(--text); }
+  legend .note { color: var(--muted); font-weight: 400; font-size: 12px; }
+  .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+  .control { display: flex; flex-direction: column; gap: 5px; }
+  .control.wide { grid-column: 1 / -1; }
+  .control label { font-size: 12.5px; color: var(--muted); display: flex; justify-content: space-between; gap: 6px; }
+  .control label .hint { color: #6b7385; font-size: 11px; }
+  .control .row { display: flex; align-items: center; gap: 6px; }
+  .control input, .control select {
+    flex: 1; background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 9px; font-size: 13px; min-width: 0;
+  }
+  .control input:focus, .control select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  .control .reset {
+    background: transparent; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 8px; width: 30px; height: 30px; cursor: pointer; font-size: 15px; line-height: 1;
+  }
+  .control .reset:hover { color: var(--text); border-color: var(--muted); }
+  .control.bool { flex-direction: row; align-items: center; justify-content: space-between; }
+  .control.bool label { margin: 0; }
+  .control input[type="checkbox"] { width: 18px; height: 18px; flex: none; accent-color: var(--accent); }
+  .control.disabled { opacity: .45; }
+  .control.disabled .unav { display: inline; }
+  .unav { display: none; color: var(--star); font-size: 11px; }
+  .control .starbadge { color: var(--star); font-size: 11px; font-weight: 700; }
+  .control.star input { border-color: rgba(255,207,92,.5); }
+
+  .preset-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .preset-row label { color: var(--muted); font-size: 12.5px; }
+  .preset-row select { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; flex: 1; }
+  .ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 7px 11px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+  .ghost:hover { color: var(--text); border-color: var(--muted); }
+
+  /* ---- right: preview ---- */
+  .preview-pane { position: sticky; top: 66px; display: flex; flex-direction: column; min-height: 60vh; }
+  .preview-toolbar { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  .btn { background: var(--accent); color: #06101f; border: 0; padding: 8px 16px; border-radius: 9px; font-weight: 650; cursor: pointer; }
+  .btn:hover { background: var(--accent-2); }
+  .btn:disabled { background: #33415e; color: #8ea0c9; cursor: not-allowed; }
+  .btn.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  .btn.secondary:hover { border-color: var(--muted); background: var(--panel-2); }
+  .meta { margin-left: auto; color: var(--muted); font-size: 12px; font-family: var(--mono); }
+  .busy { color: var(--accent-2); font-size: 12px; }
+  .status { padding: 10px 14px; font-size: 13px; white-space: pre-wrap; border-bottom: 1px solid var(--border); }
+  .status.error { color: var(--err); background: rgba(255,107,107,.08); }
+  .svg-preview {
+    flex: 1; padding: 14px; overflow: auto; display: flex; align-items: center; justify-content: center;
+    background:
+      linear-gradient(45deg, #191d26 25%, transparent 25%, transparent 75%, #191d26 75%),
+      linear-gradient(45deg, #191d26 25%, transparent 25%, transparent 75%, #191d26 75%);
+    background-size: 24px 24px; background-position: 0 0, 12px 12px; background-color: #12151c;
+  }
+  .svg-preview:empty::before { content: "Upload an image to begin"; color: var(--muted); }
+  .svg-preview svg { width: 100%; height: auto; max-width: 100%; max-height: 70vh; display: block; }
+  details.src { border-top: 1px solid var(--border); }
+  details.src summary { cursor: pointer; padding: 10px 14px; color: var(--muted); }
+  details.src pre { margin: 0; padding: 12px 14px; max-height: 240px; overflow: auto; font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: pre-wrap; word-break: break-all; }
+  .foot { color: #6b7385; font-size: 12px; padding: 10px 20px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<header>
+  <h1>raster2svg <span class="sub">&mdash; live converter</span></h1>
+  <div class="engine" id="engine"></div>
+</header>
+<main>
+  <section class="controls" aria-label="Controls">
+    <div class="upload" id="dropzone" tabindex="0">
+      <input type="file" id="file" accept="image/*" hidden>
+      <div>Drag &amp; drop an image here, or <button id="browse" type="button">browse</button></div>
+      <div class="upload-status" id="uploadStatus"></div>
+    </div>
+
+    <div id="groups"></div>
+
+    <div class="preset-row">
+      <label for="preset">Preset (base values)</label>
+      <select id="preset"><option value="">(none &mdash; engine defaults)</option></select>
+      <button class="ghost" id="resetAll" type="button">Reset all</button>
+    </div>
+  </section>
+
+  <section class="preview panel preview-pane" aria-label="Preview">
+    <div class="preview-toolbar">
+      <button class="btn" id="convertBtn" type="button">Convert</button>
+      <button class="btn secondary" id="downloadBtn" type="button" disabled>Download SVG</button>
+      <span class="meta" id="meta"></span>
+    </div>
+    <div class="status" id="status" hidden></div>
+    <div class="svg-preview" id="preview"></div>
+    <details class="src" id="src" hidden>
+      <summary>SVG source</summary>
+      <pre id="srcCode"></pre>
+    </details>
+  </section>
+</main>
+<div class="foot" id="foot"></div>
+
+<script>
+"use strict";
+const $ = (sel) => document.querySelector(sel);
+const state = { session: null, fileName: null, lastSvg: null, info: null, timer: null, busy: false };
+
+const ADVANCED = new Set([
+  "simplify","palette","max_colors","optimize","binary_threshold",
+  "adaptive","adaptive_window","adaptive_t","watershed_detail"
+]);
+const FIELD_HINTS = {
+  pre_max_colors: "Crush the raster to at most N colors before tracing (Pillow, no dithering). Distinct from Max colors (engine).",
+  max_colors: "Engine-side palette cap (needs VTracer 1.0).",
+  filter_speckle: "Higher = more speckle removed.",
+  color_precision: "Bits per RGB channel (lower = fewer colors).",
+  layer_difference: "Color gap between layers (higher = smoother).",
+  binary_threshold: "Threshold for black & white mode.",
+};
+
+async function init() {
+  const res = await fetch("/api/info");
+  state.info = await res.json();
+  renderHeader();
+  renderGroups();
+  renderPresets();
+  wireUpload();
+  $("#convertBtn").addEventListener("click", () => convertNow());
+  $("#downloadBtn").addEventListener("click", downloadSvg);
+  $("#resetAll").addEventListener("click", resetAll);
+  $("#foot").textContent =
+    "raster2svg " + state.info.version + " · engine " + state.info.engine.name + " " + state.info.engine.version +
+    " · upload is kept in memory on this machine and expires automatically.";
+}
+
+function renderHeader() {
+  const unav = state.info.unavailable_advanced || [];
+  $("#engine").textContent =
+    state.info.engine.name + " " + state.info.engine.version +
+    (unav.length ? "  ·  " + unav.length + " advanced option(s) need VTracer 1.0" : "");
+}
+
+function fieldLabel(field) {
+  let range = "";
+  if (field.min != null || field.max != null) range = " " + (field.min != null ? field.min : "…") + "–" + (field.max != null ? field.max : "…");
+  return field.label + range;
+}
+
+function makeControl(field, group) {
+  const wrap = document.createElement("div");
+  wrap.className = "control";
+  const hint = FIELD_HINTS[field.name] || "";
+  const unav = field.unavailable ? true : false;
+  if (unav) wrap.classList.add("disabled");
+  if (field.star) wrap.classList.add("star");
+
+  const label = document.createElement("label");
+  label.innerHTML = "<span>" + field.label + "</span>";
+  if (field.star) label.innerHTML += ' <span class="starbadge">★</span>';
+  if (unav) label.innerHTML += ' <span class="unav">needs VTracer 1.0</span>';
+  if (hint) label.title = hint;
+  wrap.appendChild(label);
+
+  const input = document.createElement(field.kind === "select" ? "select" : "input");
+  input.dataset.field = field.name;
+  input.dataset.kind = field.kind;
+  const def = (field.default === undefined) ? "" : (field.default === true ? "true" : String(field.default));
+  input.dataset.default = def;
+  input.disabled = unav;
+  if (unav) input.title = field.unavailable_hint || "Not supported by the installed engine.";
+
+  if (field.kind === "select") {
+    input.innerHTML = '<option value="">(default)</option>';
+    for (const opt of field.options) {
+      const o = document.createElement("option");
+      o.value = opt.value; o.textContent = opt.label;
+      input.appendChild(o);
+    }
+  } else if (field.kind === "int") {
+    input.type = "number"; input.min = field.min; input.max = field.max; input.step = 1;
+  } else if (field.kind === "float") {
+    input.type = "number"; input.min = field.min; input.max = field.max; input.step = field.kind === "float" ? "any" : 1;
+  } else if (field.kind === "bool") {
+    input.type = "checkbox"; input.checked = field.default === true;
+  } else if (field.kind === "palette") {
+    input.type = "text"; input.placeholder = "#111111, #eeeeee, …";
+  } else if (field.kind === "resize") {
+    input.type = "text"; input.placeholder = "1920x1080";
+  }
+
+  if (field.kind === "bool") {
+    wrap.classList.add("bool", "wide");
+    wrap.appendChild(input);
+  } else {
+    const row = document.createElement("div");
+    row.className = "row";
+    row.appendChild(input);
+    const reset = document.createElement("button");
+    reset.type = "button"; reset.className = "reset"; reset.textContent = "×";
+    reset.title = "Reset to default"; reset.disabled = unav;
+    reset.addEventListener("click", () => resetField(field, input));
+    row.appendChild(reset);
+    wrap.appendChild(row);
+    if (field.name === "palette" || field.name === "resize") wrap.classList.add("wide");
+  }
+
+  if (!unav) {
+    input.addEventListener("input", scheduleConvert);
+    input.addEventListener("change", scheduleConvert);
+  }
+  return wrap;
+}
+
+function resetField(field, input) {
+  if (field.kind === "bool") input.checked = field.default === true;
+  else input.value = "";
+  scheduleConvert();
+}
+
+function renderGroups() {
+  const root = $("#groups");
+  root.innerHTML = "";
+
+  root.appendChild(makeFieldset("Preprocessing", state.info.preprocess_fields, false));
+  const tracing = state.info.conversion_fields.filter((f) => !ADVANCED.has(f.name));
+  const advanced = state.info.conversion_fields.filter((f) => ADVANCED.has(f.name));
+  root.appendChild(makeFieldset("Tracing", tracing, false));
+  root.appendChild(makeFieldset("Advanced", advanced, true));
+}
+
+function makeFieldset(title, fields, isAdvanced) {
+  const fs = document.createElement("fieldset");
+  if (fields.some((f) => f.star)) fs.classList.add("legend-star");
+  const legend = document.createElement("legend");
+  legend.textContent = title;
+  if (isAdvanced) {
+    const note = document.createElement("span");
+    note.className = "note";
+    note.textContent = " — most need VTracer 1.0";
+    legend.appendChild(note);
+  }
+  fs.appendChild(legend);
+
+  const grid = document.createElement("div");
+  grid.className = "controls-grid";
+  for (const field of fields) grid.appendChild(makeControl(field));
+  fs.appendChild(grid);
+  return fs;
+}
+
+function renderPresets() {
+  const sel = $("#preset");
+  for (const name of state.info.presets) {
+    const o = document.createElement("option");
+    o.value = name; o.textContent = name;
+    sel.appendChild(o);
+  }
+  sel.addEventListener("change", scheduleConvert);
+}
+
+function collectOptions() {
+  const conversion = {};
+  const preprocess = {};
+  for (const group of [["conversion", state.info.conversion_fields], ["preprocess", state.info.preprocess_fields]]) {
+    const target = group[0] === "conversion" ? conversion : preprocess;
+    for (const field of group[1]) {
+      const el = document.querySelector('input[data-field="' + field.name + '"], select[data-field="' + field.name + '"]');
+      if (!el || el.disabled) continue;
+      let val;
+      if (field.kind === "bool") {
+        val = el.checked;
+      } else if (field.kind === "palette") {
+        const t = el.value.trim();
+        val = t ? t.split(",").map((s) => s.trim()).filter(Boolean) : null;
+      } else {
+        const t = el.value.trim();
+        if (t === "") val = null;
+        else if (field.kind === "int") val = parseInt(t, 10);
+        else if (field.kind === "float") val = parseFloat(t);
+        else val = t;
+      }
+      if (val === null || val === undefined || val === "") continue;
+      target[field.name] = val;
+    }
+  }
+  const preset = $("#preset").value || null;
+  return { conversion, preprocess, preset };
+}
+
+function resetAll() {
+  for (const el of document.querySelectorAll("#groups input, #groups select")) {
+    const field = el.dataset.field;
+    const kind = el.dataset.kind;
+    if (kind === "bool") el.checked = el.dataset.default === "true";
+    else el.value = "";
+  }
+  $("#preset").value = "";
+  scheduleConvert();
+}
+
+/* ---- upload ---- */
+function wireUpload() {
+  const dz = $("#dropzone");
+  const file = $("#file");
+  $("#browse").addEventListener("click", (e) => { e.stopPropagation(); file.click(); });
+  dz.addEventListener("click", () => file.click());
+  dz.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") file.click(); });
+  file.addEventListener("change", () => { if (file.files && file.files[0]) handleFile(file.files[0]); });
+  dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", (e) => {
+    e.preventDefault(); dz.classList.remove("drag");
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+}
+
+function handleFile(file) {
+  const status = $("#uploadStatus");
+  status.style.color = "var(--muted)";
+  status.textContent = "Uploading " + file.name + "…";
+  const reader = new FileReader();
+  reader.onerror = () => { status.style.color = "var(--err)"; status.textContent = "Could not read the file."; };
+  reader.onload = async () => {
+    const b64 = String(reader.result).split(",")[1];
+    try {
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: b64, name: file.name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+      state.session = data.session;
+      state.fileName = file.name;
+      status.style.color = "var(--ok)";
+      status.textContent = file.name + "  ·  " + data.format + "  ·  " + data.width + "×" + data.height + "  ·  " + (data.size_bytes / 1024).toFixed(1) + " KiB";
+      $("#downloadBtn").disabled = true;
+      convertNow();
+    } catch (err) {
+      status.style.color = "var(--err)";
+      status.textContent = err.message;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ---- convert ---- */
+function scheduleConvert() {
+  if (!state.session) return;
+  clearTimeout(state.timer);
+  state.timer = setTimeout(convertNow, 300);
+}
+
+function setBusy(busy) {
+  state.busy = busy;
+  $("#convertBtn").disabled = busy;
+  const meta = $("#meta");
+  if (busy) meta.textContent = "Converting…";
+}
+
+async function convertNow() {
+  if (!state.session) return;
+  setBusy(true);
+  hideStatus();
+  try {
+    const res = await fetch("/api/convert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session: state.session, options: collectOptions() }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showStatus((data.error || "Conversion failed") + (data.hint ? "\n" + data.hint : ""), true);
+      return;
+    }
+    state.lastSvg = data.svg;
+    renderPreview(data.svg);
+    $("#downloadBtn").disabled = false;
+    const ops = data.applied && data.applied.length ? " · " + data.applied.join(", ") : "";
+    $("#meta").textContent = (data.bytes / 1024).toFixed(1) + " KiB · " + data.duration_ms + " ms" + ops;
+  } catch (err) {
+    showStatus("Request failed: " + err, true);
+  } finally {
+    setBusy(false);
+  }
+}
+
+function renderPreview(svg) {
+  const box = $("#preview");
+  box.innerHTML = svg;
+  $("#srcCode").textContent = svg;
+  $("#src").hidden = false;
+}
+
+function showStatus(msg, isError) {
+  const el = $("#status");
+  el.textContent = msg;
+  el.className = "status" + (isError ? " error" : "");
+  el.hidden = false;
+}
+function hideStatus() { $("#status").hidden = true; }
+
+function downloadSvg() {
+  if (!state.lastSvg) return;
+  const blob = new Blob([state.lastSvg], { type: "image/svg+xml;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const base = (state.fileName || "raster2svg").replace(/\.[^.]+$/, "");
+  const a = document.createElement("a");
+  a.href = url; a.download = base + ".svg";
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+init().catch((err) => {
+  showStatus("Failed to load the app: " + err, true);
+});
+</script>
+</body>
+</html>

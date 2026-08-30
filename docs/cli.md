@@ -50,6 +50,7 @@ Available on every command (before the subcommand), PRD section 18:
 | `config` | `show` / `init` configuration files. |
 | `preset` | `list` / `show` / `save` presets. |
 | `engine` | `capabilities` — what the installed VTracer supports. |
+| `web` | Serve the live web interface for real-time conversion and preview. |
 | `version` | Tool and tracing-engine versions. |
 | `help` | Print help for a command or subcommand. |
 
@@ -129,6 +130,30 @@ emits machine-readable output.
 | Subcommand | Effect |
 | --- | --- |
 | `engine capabilities` | Show the engine name/version and its supported parameters. |
+
+### `web`
+
+```
+raster2svg web [OPTIONS]
+```
+
+Starts a local HTTP server that hosts a single-page app for real-time
+conversion: upload an image once, tweak options, preview the rendered SVG live,
+and download it. It reuses the same engine, presets, and preprocessing as
+`convert`, so the output is identical. The server is stdlib `http.server` and
+adds no new runtime dependencies.
+
+| Flag | Effect |
+| --- | --- |
+| `--host HOST` | Interface to bind (default `127.0.0.1`, loopback only). Use `0.0.0.0` for other hosts. |
+| `--port PORT` | Port to listen on (default `9921`). |
+| `--open` | Open the interface in the default browser on startup. |
+
+On success the command prints the URL to open and blocks until `Ctrl+C`; a
+bind failure (e.g. the port is already in use) exits with code **2** and an
+actionable message. See [`raster2svg_web_prd.md`](../raster2svg_web_prd.md) for
+the full specification, including the JSON API (`/api/info`, `/api/upload`,
+`/api/convert`) and session limits.
 
 ### `version`
 
