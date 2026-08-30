@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Web UI: proper preview zoom & pan — scroll anywhere to zoom at the cursor,
+  drag to pan, double-click to zoom in, `+` / `-` / `0` / arrow keys when the
+  preview is focused, and zoom buttons anchored at the view center (zoom range
+  10%–800% of fit).
+- Web UI: a thumbnail of the uploaded image is shown in the controls panel so
+  you can see the source raster next to the options.
+- `raster2svg web --sample PATH`: expose an existing SVG file at
+  `GET /api/sample` (reported as `sample` in `/api/info`), enabling a **Sample**
+  button in the UI to load it into the preview for testing without converting.
+
 ## [0.4.0] - 2026-08-29
 
 ### Added

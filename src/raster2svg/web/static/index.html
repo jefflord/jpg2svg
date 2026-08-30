@@ -34,9 +34,10 @@
   header .sub { color: var(--muted); font-weight: 400; font-size: 14px; }
   .engine { color: var(--muted); font-size: 12px; font-family: var(--mono); }
   main {
-    display: grid; grid-template-columns: minmax(320px, 460px) 1fr;
+    display: grid; grid-template-columns: minmax(320px, 460px) minmax(0, 1fr);
     gap: 16px; padding: 16px 20px; align-items: start;
   }
+  main > section { min-width: 0; min-height: 0; }
   @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
   .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
 
@@ -52,6 +53,15 @@
     border-radius: 8px; font-weight: 600; cursor: pointer; margin-left: 4px;
   }
   .upload-status { margin-top: 8px; font-size: 12px; color: var(--ok); font-family: var(--mono); min-height: 14px; }
+  .upload-thumb { margin: 10px auto 0; width: fit-content; max-width: 100%; }
+  .upload-thumb img {
+    display: block; max-width: 180px; max-height: 100px; border-radius: 6px;
+    border: 1px solid var(--border);
+    background:
+      linear-gradient(45deg, #2a2f3a 25%, transparent 25%, transparent 75%, #2a2f3a 75%),
+      linear-gradient(45deg, #2a2f3a 25%, transparent 25%, transparent 75%, #2a2f3a 75%);
+    background-size: 16px 16px; background-position: 0 0, 8px 8px; background-color: #1d212b;
+  }
 
   fieldset {
     border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px 12px;
@@ -104,14 +114,30 @@
   .status { padding: 10px 14px; font-size: 13px; white-space: pre-wrap; border-bottom: 1px solid var(--border); }
   .status.error { color: var(--err); background: rgba(255,107,107,.08); }
   .svg-preview {
-    flex: 1; padding: 14px; overflow: auto; display: flex; align-items: center; justify-content: center;
+    flex: 1; position: relative; overflow: hidden;
     background:
       linear-gradient(45deg, #191d26 25%, transparent 25%, transparent 75%, #191d26 75%),
       linear-gradient(45deg, #191d26 25%, transparent 25%, transparent 75%, #191d26 75%);
     background-size: 24px 24px; background-position: 0 0, 12px 12px; background-color: #12151c;
+    cursor: grab; user-select: none; -webkit-user-select: none; touch-action: none;
   }
-  .svg-preview:empty::before { content: "Upload an image to begin"; color: var(--muted); }
-  .svg-preview svg { width: 100%; height: auto; max-width: 100%; max-height: 70vh; display: block; }
+  .svg-preview.grabbing { cursor: grabbing; }
+  .svg-preview:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+  .zoom-stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+  .zoom-stage svg { display: block; width: 100%; height: 100%; }
+  .placeholder {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); pointer-events: none;
+  }
+  .zoom-ctl { display: inline-flex; align-items: center; gap: 4px; }
+  .zoom-ctl .zbtn {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    min-width: 30px; height: 30px; padding: 0 6px; border-radius: 8px; cursor: pointer;
+    font-size: 16px; line-height: 1; display: inline-flex; align-items: center; justify-content: center;
+  }
+  .zoom-ctl .zbtn:hover { color: var(--text); border-color: var(--muted); }
+  .zoom-ctl .zbtn:disabled { opacity: .4; cursor: not-allowed; }
+  .zoom-ctl .zlabel { font-family: var(--mono); font-size: 12px; color: var(--muted); min-width: 46px; text-align: center; cursor: pointer; }
   details.src { border-top: 1px solid var(--border); }
   details.src summary { cursor: pointer; padding: 10px 14px; color: var(--muted); }
   details.src pre { margin: 0; padding: 12px 14px; max-height: 240px; overflow: auto; font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: pre-wrap; word-break: break-all; }
@@ -129,6 +155,7 @@
       <input type="file" id="file" accept="image/*" hidden>
       <div>Drag &amp; drop an image here, or <button id="browse" type="button">browse</button></div>
       <div class="upload-status" id="uploadStatus"></div>
+      <div class="upload-thumb" id="uploadThumb" hidden><img id="thumbImg" alt="Uploaded image"></div>
     </div>
 
     <div id="groups"></div>
@@ -144,10 +171,22 @@
     <div class="preview-toolbar">
       <button class="btn" id="convertBtn" type="button">Convert</button>
       <button class="btn secondary" id="downloadBtn" type="button" disabled>Download SVG</button>
+      <button class="btn secondary" id="sampleBtn" type="button" disabled title="Load the sample SVG (server started with --sample)">Sample</button>
+      <span class="zoom-ctl" role="group" aria-label="Zoom">
+        <button class="zbtn" id="zoomOut" type="button" title="Zoom out" aria-label="Zoom out" disabled>&minus;</button>
+        <span class="zlabel" id="zoomPct" title="Click to fit">100%</span>
+        <button class="zbtn" id="zoomIn" type="button" title="Zoom in" aria-label="Zoom in" disabled>&plus;</button>
+        <button class="zbtn" id="zoomFit" type="button" title="Fit the whole SVG to the view" aria-label="Fit to view" disabled>Fit</button>
+        <button class="zbtn" id="zoom100" type="button" title="Reset zoom to 100% (actual size)" aria-label="Zoom to 100 percent" disabled>100%</button>
+      </span>
       <span class="meta" id="meta"></span>
     </div>
     <div class="status" id="status" hidden></div>
-    <div class="svg-preview" id="preview"></div>
+    <div class="svg-preview" id="preview" tabindex="0"
+          title="Scroll to zoom &middot; drag to pan &middot; double-click to zoom in &middot; + &minus; 1 0 and arrow keys when focused (1 = 100%, 0 = fit)">
+      <div class="zoom-stage" id="zoomStage" hidden></div>
+      <div class="placeholder" id="placeholder">Upload an image to begin</div>
+    </div>
     <details class="src" id="src" hidden>
       <summary>SVG source</summary>
       <pre id="srcCode"></pre>
@@ -159,7 +198,10 @@
 <script>
 "use strict";
 const $ = (sel) => document.querySelector(sel);
-const state = { session: null, fileName: null, lastSvg: null, info: null, timer: null, busy: false };
+const state = { session: null, fileName: null, lastSvg: null, info: null, timer: null, busy: false, thumbUrl: null };
+const MIN_ZOOM = 0.05, MAX_ZOOM = 16, VIEW_PAD = 16;
+const view = { z: 1, x: 0, y: 0, natW: 0, natH: 0 };
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 const ADVANCED = new Set([
   "simplify","palette","max_colors","optimize","binary_threshold",
@@ -181,8 +223,11 @@ async function init() {
   renderGroups();
   renderPresets();
   wireUpload();
+  wirePreview();
   $("#convertBtn").addEventListener("click", () => convertNow());
   $("#downloadBtn").addEventListener("click", downloadSvg);
+  $("#sampleBtn").addEventListener("click", loadSample);
+  if (state.info.sample && state.info.sample.name) $("#sampleBtn").disabled = false;
   $("#resetAll").addEventListener("click", resetAll);
   $("#foot").textContent =
     "raster2svg " + state.info.version + " · engine " + state.info.engine.name + " " + state.info.engine.version +
@@ -370,10 +415,21 @@ function wireUpload() {
   });
 }
 
+function setThumb(file) {
+  const wrap = $("#uploadThumb");
+  const img = $("#thumbImg");
+  if (state.thumbUrl) { URL.revokeObjectURL(state.thumbUrl); state.thumbUrl = null; }
+  if (!file || !file.type || file.type.indexOf("image/") !== 0) { wrap.hidden = true; return; }
+  state.thumbUrl = URL.createObjectURL(file);
+  img.src = state.thumbUrl;
+  wrap.hidden = false;
+}
+
 function handleFile(file) {
   const status = $("#uploadStatus");
   status.style.color = "var(--muted)";
   status.textContent = "Uploading " + file.name + "…";
+  setThumb(file);
   const reader = new FileReader();
   reader.onerror = () => { status.style.color = "var(--err)"; status.textContent = "Could not read the file."; };
   reader.onload = async () => {
@@ -442,10 +498,185 @@ async function convertNow() {
 }
 
 function renderPreview(svg) {
-  const box = $("#preview");
-  box.innerHTML = svg;
+  const stage = $("#zoomStage");
+  stage.innerHTML = svg;
+  stage.hidden = false;
+  $("#placeholder").hidden = true;
   $("#srcCode").textContent = svg;
   $("#src").hidden = false;
+  const el = stage.querySelector("svg");
+  if (el) {
+    const nat = naturalSize(el);
+    view.natW = nat.w; view.natH = nat.h;
+    stage.style.width = nat.w + "px";
+    stage.style.height = nat.h + "px";
+  }
+  fitView();
+  requestAnimationFrame(fitView); // re-fit once the layout has settled
+}
+
+/* ---- preview: zoom & pan ---- */
+function currentSvg() {
+  const el = $("#zoomStage").querySelector("svg");
+  return el || null;
+}
+
+function naturalSize(svg) {
+  const wA = parseFloat(svg.getAttribute("width"));
+  const hA = parseFloat(svg.getAttribute("height"));
+  const vb = svg.viewBox && svg.viewBox.baseVal;
+  let w = (isFinite(wA) && wA > 0) ? wA : (vb && vb.width > 0 ? vb.width : 0);
+  let h = (isFinite(hA) && hA > 0) ? hA : (vb && vb.height > 0 ? vb.height : 0);
+  if (!w || !h) {
+    const r = svg.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) { if (!w) w = r.width; if (!h) h = r.height; }
+  }
+  return { w: w || 100, h: h || 100 };
+}
+
+function applyView() {
+  const svg = currentSvg();
+  const zin = $("#zoomIn"), zout = $("#zoomOut"), zfit = $("#zoomFit"), z100 = $("#zoom100");
+  if (!svg) {
+    $("#zoomPct").textContent = "100%";
+    zin.disabled = zout.disabled = zfit.disabled = z100.disabled = true;
+    return;
+  }
+  $("#zoomStage").style.transform = "translate(" + view.x + "px, " + view.y + "px) scale(" + view.z + ")";
+  $("#zoomPct").textContent = Math.round(view.z * 100) + "%";
+  zin.disabled = view.z >= MAX_ZOOM - 1e-9;
+  zout.disabled = view.z <= MIN_ZOOM + 1e-9;
+  zfit.disabled = false;
+  z100.disabled = false;
+}
+
+function setZoom(z, center) {
+  const box = $("#preview");
+  view.z = z;
+  if (center) {
+    view.x = (box.clientWidth - view.natW * z) / 2;
+    view.y = (box.clientHeight - view.natH * z) / 2;
+  }
+  applyView();
+}
+
+function fitView() {
+  if (!currentSvg() || !view.natW || !view.natH) return;
+  const box = $("#preview");
+  const cW = box.clientWidth, cH = box.clientHeight;
+  if (!cW || !cH) return;
+  const fit = Math.min((cW - VIEW_PAD * 2) / view.natW, (cH - VIEW_PAD * 2) / view.natH);
+  if (fit > 0 && isFinite(fit)) setZoom(fit, true);
+}
+
+function reset100() {
+  if (!currentSvg()) return;
+  setZoom(1, true);
+}
+
+function zoomAt(cx, cy, factor) {
+  if (!currentSvg()) return;
+  const nz = clamp(view.z * factor, MIN_ZOOM, MAX_ZOOM);
+  const f = nz / view.z;
+  view.x = cx - (cx - view.x) * f;
+  view.y = cy - (cy - view.y) * f;
+  view.z = nz;
+  applyView();
+}
+
+function zoomCenter(factor) {
+  const box = $("#preview");
+  zoomAt(box.clientWidth / 2, box.clientHeight / 2, factor);
+}
+
+function wirePreview() {
+  const preview = $("#preview");
+  $("#zoomIn").addEventListener("click", () => zoomCenter(1.25));
+  $("#zoomOut").addEventListener("click", () => zoomCenter(1 / 1.25));
+  $("#zoomFit").addEventListener("click", fitView);
+  $("#zoom100").addEventListener("click", reset100);
+  $("#zoomPct").addEventListener("click", reset100);
+
+  preview.addEventListener("wheel", (e) => {
+    if (!currentSvg()) return;
+    e.preventDefault();
+    const r = preview.getBoundingClientRect();
+    const delta = e.deltaMode === 1 ? e.deltaY * 24 : e.deltaY;
+    zoomAt(e.clientX - r.left, e.clientY - r.top, clamp(Math.exp(-delta * 0.003), 0.4, 2.5));
+  }, { passive: false });
+
+  let drag = null;
+  preview.addEventListener("pointerdown", (e) => {
+    if (!currentSvg() || (e.button !== 0 && e.button !== 1)) return;
+    drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y, moved: false };
+    preview.setPointerCapture(e.pointerId);
+  });
+  preview.addEventListener("pointermove", (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (!drag.moved && Math.abs(dx) + Math.abs(dy) > 3) {
+      drag.moved = true;
+      preview.classList.add("grabbing");
+    }
+    if (drag.moved) { view.x = drag.ox + dx; view.y = drag.oy + dy; applyView(); }
+  });
+  const endDrag = (e) => {
+    if (drag && e.pointerId === drag.id) { drag = null; preview.classList.remove("grabbing"); }
+  };
+  preview.addEventListener("pointerup", endDrag);
+  preview.addEventListener("pointercancel", endDrag);
+
+  preview.addEventListener("dblclick", (e) => {
+    if (!currentSvg()) return;
+    e.preventDefault();
+    const r = preview.getBoundingClientRect();
+    zoomAt(e.clientX - r.left, e.clientY - r.top, 2);
+  });
+
+  preview.addEventListener("keydown", (e) => {
+    if (!currentSvg()) return;
+    const step = 60;
+    let handled = true;
+    switch (e.key) {
+      case "+": case "=": zoomCenter(1.25); break;
+      case "-": case "_": zoomCenter(1 / 1.25); break;
+      case "0": case "f": case "F": fitView(); break;
+      case "1": reset100(); break;
+      case "ArrowLeft": view.x += step; break;
+      case "ArrowRight": view.x -= step; break;
+      case "ArrowUp": view.y += step; break;
+      case "ArrowDown": view.y -= step; break;
+      default: handled = false;
+    }
+    if (handled) { e.preventDefault(); applyView(); }
+  });
+
+  window.addEventListener("resize", () => {
+    if (!currentSvg()) return;
+    const box = $("#preview");
+    view.x = (box.clientWidth - view.natW * view.z) / 2;
+    view.y = (box.clientHeight - view.natH * view.z) / 2;
+    applyView();
+  });
+}
+
+/* ---- sample SVG (server started with --sample) ---- */
+async function loadSample() {
+  try {
+    const res = await fetch("/api/sample");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+    state.lastSvg = data.svg;
+    state.fileName = (data.name || "sample").replace(/\.[^.]+$/, "");
+    setThumb(null);
+    renderPreview(data.svg);
+    $("#downloadBtn").disabled = false;
+    $("#meta").textContent = "sample · " + data.name + " · " + (data.size_bytes / 1024).toFixed(1) + " KiB";
+    showStatus("Loaded sample SVG: " + data.name);
+    setTimeout(hideStatus, 3000);
+  } catch (err) {
+    showStatus("Could not load sample: " + err, true);
+  }
 }
 
 function showStatus(msg, isError) {

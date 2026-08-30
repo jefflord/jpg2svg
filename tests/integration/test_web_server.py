@@ -72,6 +72,58 @@ def test_unknown_path_is_404(webserver: WebServer) -> None:
     assert "error" in body
 
 
+SAMPLE_SVG = (
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">'
+    '<rect width="10" height="10" fill="#f00"/></svg>\n'
+)
+
+
+@pytest.fixture()
+def sample_svg(tmp_path: Path) -> Path:
+    path = tmp_path / "sample.svg"
+    path.write_text(SAMPLE_SVG, encoding="utf-8")
+    return path
+
+
+@pytest.fixture()
+def sample_server(sample_svg: Path) -> Generator[WebServer, None, None]:
+    server = WebServer(host="127.0.0.1", port=0, sample=sample_svg)
+    server.bind()
+    server.start_in_thread()
+    yield server
+    server.shutdown()
+
+
+def test_api_sample_returns_svg(sample_server: WebServer, sample_svg: Path) -> None:
+    status, body, ctype = _request(_conn(sample_server), "GET", "/api/sample")
+    assert status == 200
+    assert "application/json" in (ctype or "")
+    assert body["svg"] == SAMPLE_SVG
+    assert body["name"] == sample_svg.name
+    assert body["size_bytes"] == len(SAMPLE_SVG.encode("utf-8"))
+
+
+def test_api_info_reports_sample(sample_server: WebServer) -> None:
+    status, info, _ = _request(_conn(sample_server), "GET", "/api/info")
+    assert status == 200
+    assert info["sample"] == {"name": "sample.svg"}
+
+
+def test_api_sample_404_when_unconfigured(webserver: WebServer) -> None:
+    status, body, _ = _request(_conn(webserver), "GET", "/api/sample")
+    assert status == 404
+    assert "--sample" in body["error"]
+    status2, info, _ = _request(_conn(webserver), "GET", "/api/info")
+    assert info["sample"] is None
+
+
+def test_bind_fails_for_missing_sample_file(tmp_path: Path) -> None:
+    server = WebServer(host="127.0.0.1", port=0, sample=tmp_path / "missing.svg")
+    with pytest.raises(OSError, match="Sample SVG not found"):
+        server.bind()
+
+
 def test_upload_rejects_missing_image(webserver: WebServer) -> None:
     status, body, _ = _request(_conn(webserver), "POST", "/api/upload", {"name": "x.jpg"})
     assert status == 400

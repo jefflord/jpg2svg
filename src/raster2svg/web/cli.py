@@ -9,6 +9,7 @@ server is stdlib `http.server`.
 from __future__ import annotations
 
 import webbrowser
+from pathlib import Path
 from typing import Annotated, NoReturn
 
 import typer
@@ -46,9 +47,24 @@ def web_command(
         bool,
         typer.Option("--open", help="Open the interface in your default browser on startup."),
     ] = False,
+    sample: Annotated[
+        Path | None,
+        typer.Option(
+            "--sample",
+            help="Path to an SVG file to expose at GET /api/sample (enables the Sample "
+            "button, so you can test the preview without converting an image).",
+        ),
+    ] = None,
 ) -> None:
     """Serve the live web interface for real-time conversion and preview."""
-    server = WebServer(host=host, port=port)
+    if sample is not None and not sample.is_file():
+        _fail(
+            ConfigError(
+                f"Sample SVG not found: {sample}",
+                hint="Pass an existing SVG file to --sample.",
+            )
+        )
+    server = WebServer(host=host, port=port, sample=sample)
     try:
         server.bind()
     except OSError as exc:

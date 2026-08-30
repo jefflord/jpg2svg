@@ -17,6 +17,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
+from pathlib import Path
 from typing import Any
 
 from raster2svg._version import __version__
@@ -194,8 +195,14 @@ def _finalize_fields(
     return out
 
 
-def build_info_payload(caps: EngineCapabilities) -> dict[str, Any]:
-    """The ``/api/info`` payload: versions, presets, and option descriptors."""
+def build_info_payload(
+    caps: EngineCapabilities, sample_name: str | None = None
+) -> dict[str, Any]:
+    """The ``/api/info`` payload: versions, presets, and option descriptors.
+
+    ``sample`` is ``null`` unless the server was started with a ``--sample``
+    SVG, in which case it carries the sample's file name.
+    """
     available, unavailable = split_engine_dependent(caps)
     return {
         "version": __version__,
@@ -206,6 +213,7 @@ def build_info_payload(caps: EngineCapabilities) -> dict[str, Any]:
         "presets": available_presets(),
         "conversion_fields": _finalize_fields(CONVERSION_FIELDS, caps),
         "preprocess_fields": _finalize_fields(PREPROCESS_FIELDS, caps),
+        "sample": {"name": sample_name} if sample_name else None,
     }
 
 
@@ -216,6 +224,7 @@ class _AppServer(ThreadingHTTPServer):
     store: SessionStore
     html: str
     info: dict[str, Any]
+    sample: tuple[Path, str] | None
 
 
 class WebHandler(BaseHTTPRequestHandler):
@@ -265,6 +274,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 self._send_html()
             elif path == "/api/info":
                 self._send_json(200, self.server.info)
+            elif path == "/api/sample":
+                self._handle_sample()
             else:
                 self._send_json(404, {"error": f"Unknown path: {path}"})
         except _APIError as exc:
@@ -345,10 +356,30 @@ class WebHandler(BaseHTTPRequestHandler):
         self._send_json(
             200,
             {
-                "svg": svg,
-                "applied": applied,
-                "duration_ms": duration_ms,
-                "bytes": len(svg.encode("utf-8")),
+            "svg": svg,
+            "applied": applied,
+            "duration_ms": duration_ms,
+            "bytes": len(svg.encode("utf-8")),
+            },
+        )
+
+    def _handle_sample(self) -> None:
+        sample = self.server.sample
+        if sample is None:
+            raise _APIError(
+                404, "No sample SVG configured. Start the server with --sample <path.svg>."
+            )
+        path, name = sample
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise _APIError(404, f"Could not read the sample SVG: {exc}") from exc
+        self._send_json(
+            200,
+            {
+                "svg": text,
+                "name": name,
+                "size_bytes": len(text.encode("utf-8")),
             },
         )
 
@@ -372,13 +403,17 @@ class WebServer:
         port: int = 9921,
         converter: Converter | None = None,
         store: SessionStore | None = None,
+        sample: Path | str | None = None,
     ) -> None:
         self.host = host
         self.port = port
         self.context = converter or Converter()
         self.store = store or SessionStore()
+        self.sample: Path | None = Path(sample).expanduser() if sample else None
         self.html = _load_index_html()
-        self.info = build_info_payload(self.context.capabilities)
+        self.info = build_info_payload(
+            self.context.capabilities, self.sample.name if self.sample else None
+        )
         self._httpd: _AppServer | None = None
         self._thread: threading.Thread | None = None
 
@@ -389,11 +424,14 @@ class WebServer:
         already in use) so callers can report it before serving begins.
         """
         if self._httpd is None:
+            if self.sample is not None and not self.sample.is_file():
+                raise OSError(f"Sample SVG not found: {self.sample}")
             server = _AppServer((self.host, self.port), WebHandler)
             server.context = self.context
             server.store = self.store
             server.html = self.html
             server.info = self.info
+            server.sample = (self.sample, self.sample.name) if self.sample else None
             self._httpd = server
 
     def serve_forever(self) -> None:

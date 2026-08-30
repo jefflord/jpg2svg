@@ -102,6 +102,11 @@ image, using a quick local server.
     machines on a trusted network).
 -   `--port` shall select the port to listen on.
 -   `--open` shall open the interface in the default browser on startup.
+-   `--sample PATH` shall expose the SVG file at `PATH` via `GET /api/sample`
+    (and report it as `sample` in `/api/info`), enabling the UI's Sample button
+    so the preview can be tested without converting an image. A missing or
+    unreadable file shall fail with a clear message and exit code **2** before
+    serving begins.
 -   On successful start, the command shall print the URL to open and a one-line
     usage hint.
 -   If the host:port cannot be bound (for example, it is already in use), the
@@ -140,6 +145,12 @@ image, using a quick local server.
 -   On every option change, the interface shall request a fresh conversion and
     render the returned SVG in the preview area.
 -   The preview shall reflect the exact SVG that would be downloaded.
+-   The preview shall support interactive zoom and pan: scroll to zoom at the
+    cursor, drag to pan, double-click to zoom in, zoom controls (in/out/fit),
+    and keyboard shortcuts (`+` / `-` / `0` / arrows) when the preview is
+    focused. A fresh conversion shall reset the view to "fit".
+-   The controls panel shall show a small thumbnail of the uploaded image so the
+    source raster is visible while tuning options.
 
 ## 4.5 Download
 
@@ -168,6 +179,7 @@ The API is JSON over HTTP. All responses use `Cache-Control: no-store`.
 | `GET` | `/api/info` | Version, engine, presets, and option descriptors. |
 | `POST` | `/api/upload` | Base64 image bytes → a session id. |
 | `POST` | `/api/convert` | Session + options → rendered SVG text. |
+| `GET` | `/api/sample` | The `--sample` SVG file, for preview testing without converting. |
 
 ## 5.2 `GET /`
 
@@ -199,9 +211,13 @@ Returns the descriptors the front end uses to build its controls:
       "min": 1, "max": 256, "star": true, "unavailable": false },
     { "name": "grayscale", "label": "Grayscale", "kind": "bool",
       "default": false, "unavailable": false }
-  ]
+  ],
+  "sample": null
 }
 ```
+
+-   `sample` — `null` when the server has no `--sample` file; otherwise an
+    object `{ "name": "<file name>" }` indicating `GET /api/sample` is available.
 
 Field descriptor keys:
 

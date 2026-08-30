@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from typer.testing import CliRunner
 
@@ -24,8 +26,15 @@ def test_web_appears_in_root_help() -> None:
 def test_web_help_lists_options() -> None:
     result = runner.invoke(app, ["web", "--help"])
     assert result.exit_code == 0, result.output
-    for flag in ("--host", "--port", "--open"):
+    for flag in ("--host", "--port", "--open", "--sample"):
         assert flag in result.output
+
+
+def test_web_rejects_missing_sample_file(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["web", "--port", "9998", "--sample", str(tmp_path / "nope.svg")])
+    assert result.exit_code == 2
+    assert "Sample SVG not found" in result.output
+    assert "nope.svg" in result.output
 
 
 def test_web_reports_bind_failure(monkeypatch: pytest.MonkeyPatch) -> None:
