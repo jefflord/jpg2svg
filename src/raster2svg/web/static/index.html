@@ -231,14 +231,24 @@ async function init() {
   if (state.info.sample && state.info.sample.name) $("#sampleBtn").disabled = false;
   $("#resetAll").addEventListener("click", resetAll);
   $("#foot").textContent =
-    "raster2svg " + state.info.version + " · engine " + state.info.engine.name + " " + state.info.engine.version +
+    "raster2svg " + state.info.version + " · " + enginesText() +
     " · upload is kept in memory on this machine and expires automatically.";
+}
+
+function engineTag(e) {
+  const origin = e.origin === "cli" ? "CLI" : (e.origin || "python");
+  return e.name + " " + e.version + " (" + origin + ")";
+}
+
+function enginesText() {
+  const engines = state.info.engines && state.info.engines.length ? state.info.engines : [state.info.engine];
+  return engines.map(engineTag).join("  ·  ");
 }
 
 function renderHeader() {
   const unav = state.info.unavailable_advanced || [];
   $("#engine").textContent =
-    state.info.engine.name + " " + state.info.engine.version +
+    enginesText() +
     (unav.length ? "  ·  " + unav.length + " advanced option(s) need VTracer 1.0" : "");
 }
 
@@ -336,10 +346,13 @@ function makeFieldset(title, fields, isAdvanced) {
   const legend = document.createElement("legend");
   legend.textContent = title;
   if (isAdvanced) {
-    const note = document.createElement("span");
-    note.className = "note";
-    note.textContent = " — most need VTracer 1.0";
-    legend.appendChild(note);
+    const unav = fields.filter((f) => f.unavailable).length;
+    if (unav) {
+      const note = document.createElement("span");
+      note.className = "note";
+      note.textContent = " — " + unav + " need VTracer 1.0";
+      legend.appendChild(note);
+    }
   }
   fs.appendChild(legend);
 

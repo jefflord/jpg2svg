@@ -22,7 +22,6 @@ from raster2svg.core.models import (
     STATUS_SKIPPED,
     ConversionResult,
 )
-from raster2svg.engines.vtracer_engine import VTracerEngine
 from raster2svg.services.converter import Converter
 from raster2svg.utils.paths import SUPPORTED_INPUT_EXTENSIONS
 
@@ -123,7 +122,7 @@ def _check_collisions(entries: list[BatchEntry]) -> None:
 
 
 def _engine_info() -> tuple[str, str]:
-    caps = VTracerEngine().capabilities
+    caps = Converter().capabilities
     return caps.name, caps.version
 
 

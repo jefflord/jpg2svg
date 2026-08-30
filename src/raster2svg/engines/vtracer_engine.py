@@ -24,30 +24,9 @@ import vtracer
 from raster2svg.config.models import Clustering, ConversionConfig, CurveMode
 from raster2svg.core.capabilities import EngineCapabilities, detect_vtracer_capabilities
 from raster2svg.core.errors import EngineError, UnsupportedFeatureError
+from raster2svg.engines.base import PARAMETER_MAP, unsupported_fields
 
-#: Canonical config field -> vtracer parameter name (when present).
-PARAMETER_MAP: dict[str, str] = {
-    "clustering": "colormode",
-    "hierarchical": "hierarchical",
-    "mode": "mode",
-    "filter_speckle": "filter_speckle",
-    "color_precision": "color_precision",
-    "layer_difference": "layer_difference",
-    "corner_threshold": "corner_threshold",
-    "length_threshold": "length_threshold",
-    "max_iterations": "max_iterations",
-    "splice_threshold": "splice_threshold",
-    "path_precision": "path_precision",
-    "simplify": "simplify",
-    "palette": "palette",
-    "max_colors": "max_colors",
-    "optimize": "optimize",
-    "binary_threshold": "binary_threshold",
-    "adaptive": "adaptive",
-    "adaptive_window": "adaptive_window",
-    "adaptive_t": "adaptive_t",
-    "watershed_detail": "watershed_detail",
-}
+__all__ = ["PARAMETER_MAP", "VTracerEngine"]
 
 _COLORMODE_BY_CLUSTERING: dict[Clustering, str] = {
     Clustering.COLOR_CLUSTER: "color",
@@ -86,17 +65,7 @@ class VTracerEngine:
         return str(svg)
 
     def _build_kwargs(self, config: ConversionConfig) -> dict[str, Any]:
-        supported = self.capabilities.supported_params
-        unsupported: list[str] = []
-        kwargs: dict[str, Any] = {}
-        for field_name, param_name in PARAMETER_MAP.items():
-            value: Any = getattr(config, field_name)
-            if value is None or value is False:
-                continue
-            if param_name not in supported:
-                unsupported.append(field_name)
-                continue
-            kwargs[param_name] = self._translate(field_name, value)
+        unsupported = unsupported_fields(self.capabilities, config)
         if unsupported:
             raise UnsupportedFeatureError(
                 "Installed VTracer "
@@ -109,10 +78,23 @@ class VTracerEngine:
                     "installed engine supports."
                 ),
             )
+        supported = self.capabilities.supported_params
+        kwargs: dict[str, Any] = {}
+        for field_name, param_name in PARAMETER_MAP.items():
+            value: Any = getattr(config, field_name)
+            if value is None or value is False:
+                continue
+            if param_name not in supported:
+                continue
+            kwargs[param_name] = self._translate(field_name, value)
         return kwargs
 
     @staticmethod
     def _translate(field_name: str, value: Any) -> Any:
+        # The 0.6.x binding declares these as integers even though the
+        # shared config model (and the CLI) accepts floats.
+        if field_name in {"corner_threshold", "splice_threshold"}:
+            return int(value)
         if field_name == "clustering" and isinstance(value, Clustering):
             return _COLORMODE_BY_CLUSTERING[value]
         if field_name == "mode" and isinstance(value, CurveMode):

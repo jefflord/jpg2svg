@@ -225,9 +225,11 @@ def test_corrupt_image_fails_cleanly(tmp_path: Path) -> None:
 
 
 def test_unsupported_feature_is_not_silently_ignored(tmp_path: Path) -> None:
+    # No installed engine honours both options: `simplify` needs a 1.0 build
+    # while `corner_threshold` is a 0.6 Python-only parameter.
     converter = Converter()
-    config = ConversionConfig(simplify=1.5)
-    with pytest.raises(UnsupportedFeatureError, match="simplify"):
+    config = ConversionConfig(simplify=1.5, corner_threshold=90.0)
+    with pytest.raises(UnsupportedFeatureError, match="does not support"):
         converter.convert(
             FIXTURES / "fixture_photo.jpg",
             tmp_path / "out.svg",

@@ -14,11 +14,15 @@ from golden_cases import GOLDEN_CASES, GOLDEN_DIR
 
 from raster2svg import Converter
 from raster2svg.config.models import OutputConfig
+from raster2svg.engines.vtracer_engine import VTracerEngine
 
 
 def main() -> None:
     GOLDEN_DIR.mkdir(parents=True, exist_ok=True)
-    converter = Converter()
+    # Goldens are pinned to the Python 0.6 engine (see test_golden.py); the
+    # 1.0 CLI build is still in alpha. Once 1.0 is final, use Converter()
+    # and commit the regenerated output.
+    converter = Converter(engine=VTracerEngine())
     for case in GOLDEN_CASES:
         converter.convert(
             case.fixture,

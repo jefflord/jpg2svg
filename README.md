@@ -167,20 +167,31 @@ By default it binds to loopback only. Press `Ctrl+C` to stop.
 ## Engine feature support
 
 `raster2svg` keeps a stable canonical configuration model and maps it onto the
-installed VTracer API at runtime. Settings the installed VTracer does not expose
-are still accepted by the parser but produce a clear "unsupported" error instead
-of being silently ignored.
+installed VTracer engine(s) at runtime. Two engines can coexist:
 
-With vtracer 0.6.15:
+- **VTracer 1.0 native CLI** (preferred). Discovered, in order, from the
+  `RASTER2SVG_VTRACER_BIN` environment variable, `vtracer` on `PATH`, and
+  `.venv/Bin/vtracer.exe`. It supports the full option surface (`simplify`,
+  `palette`, `max_colors`, `optimize`, binary/adaptive thresholding,
+  `watershed`) but not the 0.6.x smoothing thresholds.
+- **VTracer 0.6.x Python package**. Supports the smoothing thresholds, but not
+  the 1.0-only options above.
 
-| Supported | Not exposed by this engine version |
-| --- | --- |
-| `clustering` (color/binary), `hierarchical`, `mode` (pixel/polygon/spline), `filter_speckle`, `color_precision`, `layer_difference`, `corner_threshold`, `length_threshold`, `max_iterations`, `splice_threshold`, `path_precision` | `simplify`, `palette`, `max_colors`, `optimize`, binary/adaptive thresholding, `watershed` |
+Every conversion uses the first installed engine that honours the requested
+settings (1.0 CLI first), so both option families work side by side — e.g.
+`--simplify` runs on the 1.0 CLI while `--corner-threshold` transparently
+falls back to the 0.6.x Python engine. An option that *no* installed engine
+supports fails with a clear `UnsupportedFeatureError` (exit code 2) — it is
+never silently ignored.
 
-Any "Not exposed" option you request (on the CLI or in a config file) is
-accepted by the parser but fails with a clear `UnsupportedFeatureError` (exit
-code 2) — it is never silently ignored. Run `raster2svg engine capabilities`
-to see exactly what your installed engine supports.
+| Option family | VTracer 1.0 (CLI) | VTracer 0.6.x (Python) |
+| --- | --- | --- |
+| `clustering`, `hierarchical`, `mode`, `filter_speckle`, `color_precision`, `layer_difference`, `path_precision` | yes | yes |
+| `corner_threshold`, `length_threshold`, `max_iterations`, `splice_threshold` | no | yes |
+| `simplify`, `palette`, `max_colors`, `optimize`, binary/adaptive thresholding, `watershed` | yes | no |
+
+Run `raster2svg engine capabilities` to see exactly which engines are installed
+and what each supports.
 
 > **`max_colors` vs `color_precision`** — these sound alike but do different
 > things:
@@ -188,17 +199,17 @@ to see exactly what your installed engine supports.
 > - **`color_precision`** (supported) = *bits per RGB channel* — how finely
 >   colors are quantized. `4` ≈ 16 levels per channel, `8` = full 256.
 >   Lowering it reduces color variety, but does not cap the palette size.
-> - **`max_colors`** (not exposed here) = a *hard cap on the total number of
+> - **`max_colors`** (VTracer 1.0 CLI) = a *hard cap on the total number of
 >   distinct colors* in the output (palette quantization to N colors, like an
->   N-color GIF). This VTracer build has no such parameter.
+>   N-color GIF).
 >
 > So `color_precision` is not a substitute for `max_colors`: it changes color
 > granularity, not the maximum palette count.
 >
-> **`pre_max_colors`** (supported, preprocessor-side) applies the same N-color
-> palette cap in Pillow *before* tracing, so it works on any VTracer version.
-> Use `--pre-max-colors N` as the available equivalent until VTracer 1.0's
-> native `max_colors` lands.
+> **`pre_max_colors`** (preprocessor-side) applies the same N-color palette cap
+> in Pillow *before* tracing, so it works on any VTracer version — including
+> setups where only the 0.6.x Python engine is installed and `max_colors` is
+> unavailable.
 
 Presets (`bw`, `photo`, `poster`) are application-level bundles of canonical
 settings; vtracer 0.6.x exposes no native preset API.

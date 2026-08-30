@@ -21,8 +21,9 @@ from raster2svg.cli.convert import convert_command
 from raster2svg.cli.help import make_group_help_command, show_help_for
 from raster2svg.cli.inspect import inspect_command
 from raster2svg.cli.preset import preset_app
-from raster2svg.core.capabilities import detect_vtracer_capabilities, split_engine_dependent
+from raster2svg.core.capabilities import ENGINE_DEPENDENT_OPTIONS, merge_capabilities
 from raster2svg.core.errors import Raster2SvgError
+from raster2svg.engines import TracingEngine, discover_engines
 from raster2svg.utils.logging import configure_logging
 from raster2svg.web.cli import web_command
 
@@ -83,28 +84,37 @@ def root_callback(
         raise typer.Exit(exc.exit_code) from exc
 
 
+def _engine_line(engine: TracingEngine) -> str:
+    caps = engine.capabilities
+    location = f"  [{caps.binary}]" if caps.binary else ""
+    return f"engine: {caps.name} {caps.version} ({caps.origin}){location}"
+
+
 def version_command() -> None:
     """Show the tool and tracing-engine versions."""
-    caps = detect_vtracer_capabilities()
+    engines = discover_engines()
     typer.echo(f"raster2svg {__version__}")
-    typer.echo(f"engine: {caps.name} {caps.version}")
+    for engine in engines:
+        typer.echo(_engine_line(engine))
+    if not any(engine.capabilities.origin == "cli" for engine in engines):
+        typer.echo(
+            "vtracer 1.0 CLI: not detected. Set RASTER2SVG_VTRACER_BIN "
+            "or put vtracer.exe (1.x) on PATH."
+        )
 
 
 def _list_caps_command() -> None:
-    caps = detect_vtracer_capabilities()
-    available, unavailable = split_engine_dependent(caps)
-    typer.echo(f"engine: {caps.name} {caps.version}")
-    typer.echo(f"supported parameters: {', '.join(sorted(caps.supported_params))}")
-    if unavailable:
+    engines = discover_engines()
+    for engine in engines:
+        typer.echo(_engine_line(engine))
+        params = ", ".join(sorted(engine.capabilities.supported_params))
+        typer.echo(f"supported parameters: {params}")
         typer.echo()
-        typer.echo("Advanced options NOT available on this engine (needs VTracer 1.0):")
-        for option in unavailable:
-            typer.echo(f"  {option}")
-    if available:
-        typer.echo()
-        typer.echo("Advanced options available on this engine:")
-        for option in available:
-            typer.echo(f"  {option}")
+    union = merge_capabilities([engine.capabilities for engine in engines])
+    typer.echo("Advanced options (available when any installed engine honours them):")
+    for option, param in ENGINE_DEPENDENT_OPTIONS:
+        status = "available" if union.supports(param) else "NOT available (needs VTracer 1.0)"
+        typer.echo(f"  {option}  [{status}]")
 
 
 engine_app = typer.Typer(

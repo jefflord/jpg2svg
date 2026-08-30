@@ -20,8 +20,22 @@ from golden_cases import GOLDEN_CASES
 
 from raster2svg import Converter
 from raster2svg.config.models import OutputConfig
+from raster2svg.engines.vtracer_engine import VTracerEngine
 
 _XML_DECL = re.compile(r"<\?xml\b[^>]*\?>", re.DOTALL)
+
+
+def _pinned_converter() -> Converter:
+    """Goldens are pinned to the Python 0.6 engine.
+
+    The 1.0 CLI build is still in alpha and produces different output, so the
+    exact/structural/semantic expectations stay tied to the 0.6 wheel. Once
+    1.0 is final, drop the pin (use a plain ``Converter()``) and regenerate
+    with: ``python tests/generate_golden.py``.
+    """
+    return Converter(engine=VTracerEngine())
+
+
 _COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
 _WS_BETWEEN_TAGS = re.compile(r">\s+<")
 
@@ -72,7 +86,7 @@ def generated_svgs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, str]:
     """Convert every golden case once and cache the raw SVG text by name."""
     out_dir = tmp_path_factory.mktemp("golden")
     cache: dict[str, str] = {}
-    converter = Converter()
+    converter = _pinned_converter()
     for case in GOLDEN_CASES:
         target = out_dir / f"{case.name}.svg"
         converter.convert(

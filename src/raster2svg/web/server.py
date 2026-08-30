@@ -23,7 +23,11 @@ from typing import Any
 from raster2svg._version import __version__
 from raster2svg.config.models import ConversionConfig, PreprocessConfig
 from raster2svg.config.presets import available_presets
-from raster2svg.core.capabilities import EngineCapabilities, split_engine_dependent
+from raster2svg.core.capabilities import (
+    EngineCapabilities,
+    merge_capabilities,
+    split_engine_dependent,
+)
 from raster2svg.core.errors import Raster2SvgError
 from raster2svg.services.converter import Converter
 from raster2svg.web.session import SessionStore
@@ -196,23 +200,40 @@ def _finalize_fields(
 
 
 def build_info_payload(
-    caps: EngineCapabilities, sample_name: str | None = None
+    caps: EngineCapabilities,
+    sample_name: str | None = None,
+    engines: list[EngineCapabilities] | None = None,
 ) -> dict[str, Any]:
     """The ``/api/info`` payload: versions, presets, and option descriptors.
+
+    ``caps`` describes the preferred engine; ``engines`` (when given) lists
+    every available engine, most preferred first. Option availability is
+    gated on the union of the engines' capabilities.
 
     ``sample`` is ``null`` unless the server was started with a ``--sample``
     SVG, in which case it carries the sample's file name.
     """
-    available, unavailable = split_engine_dependent(caps)
+    all_caps = engines if engines else [caps]
+    union = merge_capabilities(all_caps) if len(all_caps) > 1 else caps
+    available, unavailable = split_engine_dependent(union)
     return {
         "version": __version__,
-        "engine": {"name": caps.name, "version": caps.version},
-        "supported_params": sorted(caps.supported_params),
+        "engine": {"name": caps.name, "version": caps.version, "origin": caps.origin},
+        "engines": [
+            {
+                "name": engine.name,
+                "version": engine.version,
+                "origin": engine.origin,
+                "binary": engine.binary,
+            }
+            for engine in all_caps
+        ],
+        "supported_params": sorted(union.supported_params),
         "available_advanced": available,
         "unavailable_advanced": unavailable,
         "presets": available_presets(),
-        "conversion_fields": _finalize_fields(CONVERSION_FIELDS, caps),
-        "preprocess_fields": _finalize_fields(PREPROCESS_FIELDS, caps),
+        "conversion_fields": _finalize_fields(CONVERSION_FIELDS, union),
+        "preprocess_fields": _finalize_fields(PREPROCESS_FIELDS, union),
         "sample": {"name": sample_name} if sample_name else None,
     }
 
@@ -412,7 +433,9 @@ class WebServer:
         self.sample: Path | None = Path(sample).expanduser() if sample else None
         self.html = _load_index_html()
         self.info = build_info_payload(
-            self.context.capabilities, self.sample.name if self.sample else None
+            self.context.capabilities,
+            self.sample.name if self.sample else None,
+            engines=[engine.capabilities for engine in self.context.engines],
         )
         self._httpd: _AppServer | None = None
         self._thread: threading.Thread | None = None

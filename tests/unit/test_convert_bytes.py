@@ -8,7 +8,6 @@ import pytest
 from PIL import Image
 
 from raster2svg.config.models import ConversionConfig, PreprocessConfig
-from raster2svg.core.capabilities import detect_vtracer_capabilities
 from raster2svg.core.errors import UnsupportedFeatureError
 from raster2svg.services.converter import Converter
 
@@ -53,9 +52,11 @@ def test_convert_bytes_expands_preset() -> None:
 
 
 def test_convert_bytes_rejects_unsupported_engine_feature() -> None:
-    if not detect_vtracer_capabilities().supports("adaptive"):
-        with pytest.raises(UnsupportedFeatureError) as exc_info:
-            Converter().convert_bytes(
-                _jpeg_bytes(), "jpg", config=ConversionConfig.from_dict({"adaptive": True})
-            )
-        assert "VTracer 1.0" in (exc_info.value.hint or "")
+    # No installed engine honours both options: `adaptive` needs a 1.0 build
+    # while `corner_threshold` is a 0.6 Python-only parameter, so the
+    # combination is rejected regardless of which engines are present.
+    config = ConversionConfig.from_dict({"adaptive": True, "corner_threshold": 90.0})
+    with pytest.raises(UnsupportedFeatureError) as exc_info:
+        Converter().convert_bytes(_jpeg_bytes(), "jpg", config=config)
+    assert "VTracer 1.0" in (exc_info.value.hint or "")
+    assert "does not support" in exc_info.value.message

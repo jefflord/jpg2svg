@@ -16,19 +16,24 @@ from raster2svg.config.loader import load_config_file
 from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
 from raster2svg.config.resolver import resolve_conversion_config
 from raster2svg.config.user_config import load_user_config
-from raster2svg.core.capabilities import detect_vtracer_capabilities
+from raster2svg.core.capabilities import EngineCapabilities, merge_capabilities
+from raster2svg.engines import discover_engines
 
 # Resolved once per process so the option help can state precisely which
-# advanced options the installed tracing engine can honour (PRD section 21).
-_ENGINE = detect_vtracer_capabilities()
+# advanced options the installed tracing engine(s) can honour (PRD section
+# 21). The union across engines is used: an option is available when any
+# installed engine honours it.
+_ENGINE: EngineCapabilities = merge_capabilities(
+    [engine.capabilities for engine in discover_engines()]
+)
 
 
 def _option_help(text: str, requires: str | None = None) -> str:
-    """Return option help, flagging options the installed engine cannot honour.
+    """Return option help, flagging options no installed engine can honour.
 
     ``requires`` is the vtracer parameter the option depends on (see
-    ``capabilities.ENGINE_DEPENDENT_OPTIONS``). When the installed engine lacks
-    it, the help carries an obvious marker instead of a vague caveat.
+    ``capabilities.ENGINE_DEPENDENT_OPTIONS``). When no installed engine
+    honours it, the help carries an obvious marker instead of a vague caveat.
     """
     if requires is None or _ENGINE.supports(requires):
         return text

@@ -19,11 +19,11 @@ from PIL import Image, UnidentifiedImageError
 from raster2svg._version import __version__
 from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
 from raster2svg.config.resolver import resolve_conversion_config
-from raster2svg.core.capabilities import EngineCapabilities
-from raster2svg.core.errors import InputError, OutputError
+from raster2svg.core.capabilities import EngineCapabilities, merge_capabilities
+from raster2svg.core.errors import InputError, OutputError, UnsupportedFeatureError
 from raster2svg.core.models import STATUS_DRY_RUN, STATUS_SUCCESS, ConversionResult
-from raster2svg.engines.base import TracingEngine
-from raster2svg.engines.vtracer_engine import VTracerEngine
+from raster2svg.engines import discover_engines
+from raster2svg.engines.base import TracingEngine, unsupported_fields
 from raster2svg.output.atomic_write import atomic_write_text
 from raster2svg.output.svg import validate_svg
 from raster2svg.preprocess.image import apply_preprocessing
@@ -45,11 +45,45 @@ class Converter:
     """
 
     def __init__(self, engine: TracingEngine | None = None) -> None:
-        self._engine = engine or VTracerEngine()
+        self._engines = [engine] if engine is not None else discover_engines()
+
+    @property
+    def engines(self) -> list[TracingEngine]:
+        """All available engines, most preferred first."""
+        return list(self._engines)
 
     @property
     def capabilities(self) -> EngineCapabilities:
-        return self._engine.capabilities
+        """Capabilities of the preferred engine (first in `engines`)."""
+        return self._engines[0].capabilities
+
+    @property
+    def capabilities_union(self) -> EngineCapabilities:
+        """Union of what every available engine honours (option gating)."""
+        return merge_capabilities([engine.capabilities for engine in self._engines])
+
+    def _select_engine(self, config: ConversionConfig) -> TracingEngine:
+        """Pick the best engine for this config.
+
+        The preferred engine is used unless the config sets options it
+        cannot honour; then the first engine with full support wins
+        (smart fallback). Raises UnsupportedFeatureError when no engine
+        can handle the config.
+        """
+        for engine in self._engines:
+            if not unsupported_fields(engine.capabilities, config):
+                return engine
+        missing: set[str] = set()
+        for engine in self._engines:
+            missing.update(unsupported_fields(engine.capabilities, config))
+        raise UnsupportedFeatureError(
+            f"Installed VTracer does not support: {', '.join(sorted(missing))}.",
+            hint=(
+                "These options need VTracer 1.0. Run "
+                "`raster2svg engine capabilities` to see what the installed "
+                "engines support."
+            ),
+        )
 
     def convert(
         self,
@@ -76,6 +110,7 @@ class Converter:
         width, height, fmt = self._inspect_input(input_path)
         logger.debug("input: %s (%s %dx%d)", input_path, fmt, width, height)
         self._check_output_path(target, output_cfg)
+        engine = self._select_engine(conversion_cfg)
         image_bytes = input_path.read_bytes()
 
         prepared = apply_preprocessing(
@@ -94,8 +129,8 @@ class Converter:
                 input_path=input_path,
                 output_path=target,
                 tool_version=__version__,
-                engine_name=self._engine.capabilities.name,
-                engine_version=self._engine.capabilities.version,
+                engine_name=engine.capabilities.name,
+                engine_version=engine.capabilities.version,
                 duration_ms=0,
                 config=_config_dict(conversion_cfg),
                 input_format=fmt,
@@ -106,7 +141,7 @@ class Converter:
             )
 
         started = time.perf_counter()
-        svg = self._engine.trace(
+        svg = engine.trace(
             image_bytes=prepared.image_bytes,
             image_format=prepared.image_format,
             config=conversion_cfg,
@@ -128,8 +163,8 @@ class Converter:
             input_path=input_path,
             output_path=target,
             tool_version=__version__,
-            engine_name=self._engine.capabilities.name,
-            engine_version=self._engine.capabilities.version,
+            engine_name=engine.capabilities.name,
+            engine_version=engine.capabilities.version,
             duration_ms=duration_ms,
             config=_config_dict(conversion_cfg),
             output_bytes=len(svg_bytes),
@@ -161,7 +196,8 @@ class Converter:
         conversion_cfg = _apply_preset(config or ConversionConfig())
         preprocess_cfg = preprocess or PreprocessConfig()
         prepared = apply_preprocessing(image_bytes, image_format, preprocess_cfg)
-        svg = self._engine.trace(
+        engine = self._select_engine(conversion_cfg)
+        svg = engine.trace(
             image_bytes=prepared.image_bytes,
             image_format=prepared.image_format,
             config=conversion_cfg,

@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 from raster2svg.cli.app import app
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 
 def _svg_dimensions(path: Path) -> tuple[int, int]:

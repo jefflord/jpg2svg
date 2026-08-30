@@ -160,10 +160,12 @@ def test_engine_capabilities_command() -> None:
     assert "colormode" in result.output
     # Advanced options are always surfaced, whether available or not.
     assert "--max-colors" in result.output
-    # On the pinned vtracer 0.6.x engine these options are not yet available.
-    from raster2svg.core.capabilities import detect_vtracer_capabilities
+    # Options missing from every installed engine are flagged.
+    from raster2svg.core.capabilities import merge_capabilities
+    from raster2svg.engines import discover_engines
 
-    if not detect_vtracer_capabilities().supports("max_colors"):
+    union = merge_capabilities([engine.capabilities for engine in discover_engines()])
+    if not union.supports("max_colors"):
         assert "VTracer 1.0" in result.output
 
 
@@ -192,10 +194,21 @@ def test_missing_input_exits_3(tmp_path: Path) -> None:
 
 
 def test_unsupported_engine_feature_exits_2(tmp_path: Path) -> None:
+    # No installed engine honours both options: --simplify needs a 1.0 build
+    # while --corner-threshold is a 0.6 Python-only parameter, so the
+    # combination is rejected regardless of which engines are present.
     out = tmp_path / "out.svg"
     result = runner.invoke(
         app,
-        ["convert", str(FIXTURES / "fixture_photo.jpg"), str(out), "--simplify", "1.5"],
+        [
+            "convert",
+            str(FIXTURES / "fixture_photo.jpg"),
+            str(out),
+            "--simplify",
+            "1.5",
+            "--corner-threshold",
+            "90",
+        ],
     )
     assert result.exit_code == 2
     assert "does not support" in result.output

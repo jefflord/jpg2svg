@@ -8,6 +8,7 @@ add parameters are picked up automatically.
 from __future__ import annotations
 
 import inspect
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from importlib.metadata import PackageNotFoundError, version
 
@@ -19,6 +20,11 @@ class EngineCapabilities:
     name: str
     version: str
     supported_params: frozenset[str] = field(default_factory=frozenset)
+    #: How this engine is driven: "python" (vtracer package) or "cli"
+    #: (native VTracer 1.x executable).
+    origin: str = "python"
+    #: Executable path, for CLI engines.
+    binary: str | None = None
 
     def supports(self, param: str) -> bool:
         return param in self.supported_params
@@ -72,3 +78,24 @@ def split_engine_dependent(caps: EngineCapabilities) -> tuple[list[str], list[st
     for option, param in ENGINE_DEPENDENT_OPTIONS:
         (available if caps.supports(param) else unavailable).append(option)
     return available, unavailable
+
+
+def merge_capabilities(caps: Sequence[EngineCapabilities]) -> EngineCapabilities:
+    """Combine capabilities of several engines into one.
+
+    The union of `supported_params` is used for gating user-facing options
+    (an option is available when *any* engine honours it); the preferred
+    engine (first in the list) supplies name and version.
+    """
+    if not caps:
+        raise ValueError("At least one engine capability set is required.")
+    params: frozenset[str] = frozenset()
+    for capabilities in caps:
+        params |= capabilities.supported_params
+    preferred = caps[0]
+    return EngineCapabilities(
+        name=preferred.name,
+        version=preferred.version,
+        supported_params=params,
+        origin="union",
+    )
