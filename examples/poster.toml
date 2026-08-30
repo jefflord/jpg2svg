@@ -1,0 +1,16 @@
+# raster2svg example: poster / flat-color artwork
+#
+# Usage:
+#   raster2svg convert art.png --config examples/poster.toml --overwrite
+
+[conversion]
+clustering = "color-cluster"
+hierarchical = "cutout"
+mode = "spline"
+color_precision = 4
+layer_difference = 24
+path_precision = 3
+
+# Reduce to a small palette (engine-dependent; may be unsupported on 0.6.x):
+# max_colors = 8
+# optimize = 1

@@ -159,7 +159,9 @@ def test_contrast_preserves_alpha_channel() -> None:
     with Image.open(io.BytesIO(result.image_bytes)) as image:
         assert image.mode == "RGBA"
         # Alpha must be untouched (128), even though the color changed.
-        assert image.getpixel((16, 16))[3] == 128
+        pixel = image.getpixel((16, 16))
+        assert isinstance(pixel, tuple)
+        assert pixel[3] == 128
 
 
 def test_operations_apply_in_documented_order() -> None:

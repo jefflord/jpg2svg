@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import sys
 from pathlib import Path
 
@@ -173,6 +174,7 @@ def test_report_file_is_written(tmp_path: Path) -> None:
     payload = report.read_text(encoding="utf-8")
     assert '"status": "success"' in payload
     assert "vtracer" in payload
+    assert hashlib.sha256(out.read_bytes()).hexdigest() in payload
 
 
 def test_preset_list_shows_builtins() -> None:

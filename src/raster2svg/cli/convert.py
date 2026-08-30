@@ -13,6 +13,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from raster2svg.cli.help import show_help_for
 from raster2svg.cli.options import (
     AdaptiveOption,
     AdaptiveTOption,
@@ -168,6 +169,8 @@ def convert_command(
     """Convert one raster image to SVG."""
     input_path = input_flag or input
     output_path = output_flag or output
+    if input_path is not None and str(input_path) == "help" and output_path is None:
+        show_help_for("convert")
     if input_path is None:
         _fail(
             ConfigError(

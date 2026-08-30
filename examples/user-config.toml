@@ -1,0 +1,33 @@
+# raster2svg user-level configuration (EXAMPLE)
+#
+# This is the machine-wide default config. Save it as:
+#
+#   Windows:  %APPDATA%\raster2svg\config.toml
+#   Linux:    ~/.local/share/raster2svg/config.toml
+#   macOS:    ~/Library/Application Support/raster2svg/config.toml
+#
+# (Honors the RASTER2SVG_DATA_DIR environment variable if set.)
+#
+# It applies to EVERY conversion on this machine and sits below a project
+# --config file and CLI options, but above presets:
+#
+#   engine defaults  <  preset  <  THIS FILE  <  --config file  <  CLI options
+#
+# Only set the keys you want to change globally; everything else falls through
+# to the layers below. A key here does not override a key set by --config or
+# a CLI flag.
+
+[conversion]
+path_precision = 3
+filter_speckle = 4
+
+# A good place to pin your preferred starting preset for the whole machine:
+preset = "photo"
+
+[preprocess]
+auto_orient = true
+# denoise = true
+
+[output]
+# overwrite = false
+# validate_svg = true

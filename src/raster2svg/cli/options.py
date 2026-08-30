@@ -15,6 +15,7 @@ import typer
 from raster2svg.config.loader import load_config_file
 from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
 from raster2svg.config.resolver import resolve_conversion_config
+from raster2svg.config.user_config import load_user_config
 
 PresetOption = Annotated[
     str | None,
@@ -404,6 +405,15 @@ def resolve_cli_options(
     file_cfg: dict[str, Any] = {"conversion": {}, "preprocess": {}, "output": {}}
     if config_path is not None:
         file_cfg = load_config_file(config_path)
+
+    # PRD 8: the user-level config file (level 3) sits below the explicit
+    # --config file (level 4). Merge per section so the file overrides key
+    # by key while user values fill the gaps.
+    user_cfg = load_user_config()
+    file_cfg = {
+        section: {**user_cfg[section], **file_cfg[section]}
+        for section in ("conversion", "preprocess", "output")
+    }
 
     config = resolve_conversion_config(
         preset=preset,

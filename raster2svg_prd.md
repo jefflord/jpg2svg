@@ -1805,6 +1805,13 @@ Recommended:
 -   Pytest
 -   Packaging smoke test
 
+**Decision (v0.2):** No CI / GitHub Actions pipeline will be set up at this
+time. Development is single-machine (local Windows) and the checks above
+(Ruff, Mypy, Pytest, plus a manual packaging smoke test) are run locally as the
+verification gate before each commit/release. A remote CI pipeline can be added
+later if the project moves to a shared or multi-platform development model; the
+local gate commands remain the source of truth in the meantime.
+
 ------------------------------------------------------------------------
 
 # 27. Performance Requirements

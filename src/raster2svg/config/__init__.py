@@ -21,6 +21,11 @@ from raster2svg.config.presets import (
     save_custom_preset,
 )
 from raster2svg.config.resolver import resolve_conversion_config
+from raster2svg.config.user_config import (
+    find_user_config_file,
+    load_user_config,
+    user_config_dir,
+)
 
 __all__ = [
     "AppConfig",
@@ -40,4 +45,7 @@ __all__ = [
     "resolve_conversion_config",
     "resolve_preset",
     "save_custom_preset",
+    "user_config_dir",
+    "find_user_config_file",
+    "load_user_config",
 ]

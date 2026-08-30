@@ -1,0 +1,16 @@
+# raster2svg example: black-and-white line art / logo
+#
+# Usage:
+#   raster2svg convert logo.png --config examples/bw.toml --overwrite
+
+[conversion]
+clustering = "bw"
+hierarchical = "stacked"
+mode = "spline"
+filter_speckle = 2
+path_precision = 3
+# binary_threshold = 128   # engine-dependent; may be unsupported
+
+[preprocess]
+grayscale = true
+# denoise = true

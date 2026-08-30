@@ -11,6 +11,7 @@ from rich.progress import Progress
 from rich.table import Table
 
 from raster2svg.cli.convert import _fail, _print_resolved_config
+from raster2svg.cli.help import show_help_for
 from raster2svg.cli.options import (
     AdaptiveOption,
     AdaptiveTOption,
@@ -184,6 +185,9 @@ def batch_command(
     dry_run: DryRunOption = False,
 ) -> None:
     """Convert a file or directory of raster images to SVG (PRD 12)."""
+    if str(input_dir) == "help" and output_dir is None:
+        show_help_for("batch")
+
     include_patterns = tuple(include or ())
     exclude_patterns = tuple(exclude or ())
 

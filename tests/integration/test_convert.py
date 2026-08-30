@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -49,6 +50,8 @@ def test_jpg_to_svg(tmp_path: Path) -> None:
     _assert_valid_svg(tmp_path / "photo.svg")
     text = (tmp_path / "photo.svg").read_text(encoding="utf-8")
     assert "<path" in text
+    disk_sha = hashlib.sha256((tmp_path / "photo.svg").read_bytes()).hexdigest()
+    assert result.output_sha256 == disk_sha
 
 
 def test_png_with_alpha(tmp_path: Path) -> None:

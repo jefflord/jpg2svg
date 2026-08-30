@@ -25,6 +25,7 @@ class ConversionResult:
     duration_ms: int
     config: dict[str, Any] = field(default_factory=dict)
     output_bytes: int | None = None
+    output_sha256: str | None = None
     input_format: str | None = None
     input_width: int | None = None
     input_height: int | None = None

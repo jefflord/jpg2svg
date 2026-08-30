@@ -21,6 +21,7 @@ def _result_payload(result: ConversionResult) -> dict[str, Any]:
         "input": str(result.input_path),
         "output": str(result.output_path) if result.output_path else None,
         "output_bytes": result.output_bytes,
+        "output_sha256": result.output_sha256,
         "input_format": result.input_format,
         "input_width": result.input_width,
         "input_height": result.input_height,

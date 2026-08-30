@@ -43,9 +43,87 @@ If the shell is not activated, always call the venv executables directly:
 raster2svg photo.jpg photo.svg
 raster2svg convert photo.jpg --preset photo --mode spline --overwrite
 raster2svg convert photo.jpg --show-config
+raster2svg inspect photo.jpg
+raster2svg --verbose convert photo.jpg --log-file build\conversion.log
 raster2svg engine capabilities
 raster2svg --help
 ```
+
+## Configuration
+
+Settings resolve from five layers, lowest to highest priority:
+
+```text
+engine defaults  <  preset  <  user config  <  --config file  <  CLI options
+```
+
+A higher layer only overrides the keys it sets; the rest fall through. So a
+preset, a user file, and a project file can coexist without clobbering each
+other.
+
+The **user-level config file** (`config.toml` or `config.json`) is machine-wide
+and lives in the platform data directory (alongside custom presets):
+
+| OS | Directory |
+| --- | --- |
+| Windows | `%APPDATA%\raster2svg\` |
+| Linux | `~/.local/share/raster2svg/` |
+| macOS | `~/Library/Application Support/raster2svg/` |
+
+(`RASTER2SVG_DATA_DIR` relocates it.) A key here never overrides a key set by a
+`--config` file or a CLI flag — it only fills the gaps.
+
+See [`docs/configuration.md`](docs/configuration.md) for every supported key and
+[`examples/`](examples/) for ready-to-copy configs (`photo.toml`, `bw.toml`,
+`poster.toml`, and a user-level `user-config.toml`).
+
+## Help
+
+Every command supports `--help` (or `-h`). A `help` subcommand works in both
+positions, and prints exactly the same text as the matching `--help`:
+
+```powershell
+raster2svg help
+raster2svg help convert
+raster2svg help config show
+raster2svg convert help
+raster2svg batch help
+raster2svg config help show
+```
+
+## Inspecting images
+
+`raster2svg inspect` decodes the image and reports its properties without
+converting it — useful before a large batch run:
+
+```powershell
+raster2svg inspect photo.jpg
+# Path: photo.jpg
+# Format: JPEG
+# Mode: RGB
+# Width: 6000
+# Height: 4000
+# Pixels: 24,000,000
+# Has alpha: false
+# EXIF orientation: 1
+# Size: 1,234,567 bytes
+# Estimated memory: 68.7 MiB
+
+raster2svg inspect --format json photo.jpg
+```
+
+## Logging
+
+Global options available on every command (before the subcommand):
+
+| Flag | Effect |
+| --- | --- |
+| `--verbose` | Debug logging (default: INFO) |
+| `--quiet` | Warnings and errors only |
+| `--log-level LEVEL` | `debug`, `info`, `warning`, or `error`; overrides `--verbose`/`--quiet` |
+| `--log-file PATH` | Also write log messages to a file |
+
+`--verbose` and `--quiet` are mutually exclusive (exit code 2).
 
 ## Preprocessing
 
@@ -83,6 +161,16 @@ With vtracer 0.6.15:
 
 Presets (`bw`, `photo`, `poster`) are application-level bundles of canonical
 settings; vtracer 0.6.x exposes no native preset API.
+
+## Documentation
+
+- [`docs/configuration.md`](docs/configuration.md) — every config key, the
+  five-layer precedence, and the user-level config file.
+- [`docs/cli.md`](docs/cli.md) — all commands and flags.
+- [`docs/presets.md`](docs/presets.md) — built-in presets and custom presets.
+- [`docs/architecture.md`](docs/architecture.md) — how the core, config, and
+  engine-adapter layers fit together.
+- [`examples/`](examples/) — ready-to-copy sample configs.
 
 ## Development
 

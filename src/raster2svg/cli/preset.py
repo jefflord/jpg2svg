@@ -15,6 +15,7 @@ from rich.console import Console
 from rich.table import Table
 
 from raster2svg.cli.convert import _fail
+from raster2svg.cli.help import make_group_help_command
 from raster2svg.config.loader import load_config_file
 from raster2svg.config.presets import (
     PRESET_NOTE,
@@ -33,6 +34,8 @@ preset_app = typer.Typer(
     help="List, show, and save presets.",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
+
+preset_app.command("help")(make_group_help_command("preset"))
 
 
 @preset_app.callback(invoke_without_command=True)

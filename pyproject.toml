@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "raster2svg"
-version = "0.2.0"
+version = "0.3.0"
 description = "Raster image to SVG converter CLI powered by VTracer"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -45,6 +45,7 @@ packages = ["src/raster2svg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]
 
 [tool.ruff]
 line-length = 100

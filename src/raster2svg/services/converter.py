@@ -8,6 +8,8 @@ Pipeline (PRD section 4.1):
 
 from __future__ import annotations
 
+import hashlib
+import logging
 import time
 from pathlib import Path
 from typing import Any
@@ -26,6 +28,8 @@ from raster2svg.output.atomic_write import atomic_write_text
 from raster2svg.output.svg import validate_svg
 from raster2svg.preprocess.image import apply_preprocessing
 from raster2svg.utils.paths import default_output_path, image_format_hint, validate_input_path
+
+logger = logging.getLogger("raster2svg")
 
 
 class Converter:
@@ -70,6 +74,7 @@ class Converter:
         input_path = validate_input_path(input_path)
         target = Path(output_path) if output_path is not None else default_output_path(input_path)
         width, height, fmt = self._inspect_input(input_path)
+        logger.debug("input: %s (%s %dx%d)", input_path, fmt, width, height)
         self._check_output_path(target, output_cfg)
         image_bytes = input_path.read_bytes()
 
@@ -77,6 +82,10 @@ class Converter:
             image_bytes,
             image_format_hint(input_path) or "unknown",
             preprocess_cfg,
+        )
+        logger.debug(
+            "preprocessing: %s",
+            ", ".join(prepared.applied) if prepared.applied else "none",
         )
 
         if dry_run:
@@ -102,6 +111,8 @@ class Converter:
             image_format=prepared.image_format,
             config=conversion_cfg,
         )
+        svg_bytes = svg.encode("utf-8")
+        logger.debug("traced: %d bytes of SVG", len(svg))
         if output_cfg.validate_svg:
             validate_svg(svg)
         atomic_write_text(
@@ -110,6 +121,7 @@ class Converter:
             overwrite=output_cfg.overwrite,
             create_directories=output_cfg.create_directories,
         )
+        logger.debug("wrote: %s", target)
         duration_ms = int((time.perf_counter() - started) * 1000)
         return ConversionResult(
             status=STATUS_SUCCESS,
@@ -120,7 +132,8 @@ class Converter:
             engine_version=self._engine.capabilities.version,
             duration_ms=duration_ms,
             config=_config_dict(conversion_cfg),
-            output_bytes=len(svg.encode("utf-8")),
+            output_bytes=len(svg_bytes),
+            output_sha256=hashlib.sha256(svg_bytes).hexdigest(),
             input_format=fmt,
             input_width=width,
             input_height=height,

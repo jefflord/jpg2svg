@@ -8,6 +8,7 @@ bounded concurrency. Individual file failures never abort the batch unless
 from __future__ import annotations
 
 import fnmatch
+import logging
 import os
 from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -26,6 +27,8 @@ from raster2svg.services.converter import Converter
 from raster2svg.utils.paths import SUPPORTED_INPUT_EXTENSIONS
 
 ProgressCallback = Callable[[ConversionResult], None]
+
+logger = logging.getLogger("raster2svg")
 
 
 @dataclass(frozen=True)
@@ -191,6 +194,7 @@ class BatchConverter:
         on_result: ProgressCallback | None = None,
     ) -> list[ConversionResult]:
         """Convert every entry; per-file failures are captured, not raised."""
+        logger.debug("batch: %d file(s), jobs=%d", len(entries), jobs)
         config = config or ConversionConfig()
         output_cfg = output or OutputConfig()
         preprocess_cfg = preprocess or PreprocessConfig()
@@ -212,7 +216,13 @@ class BatchConverter:
                 dry_run,
                 on_result,
             )
-        return [r for r in results if r is not None]
+        final_results = [r for r in results if r is not None]
+        for result in final_results:
+            if result.status == STATUS_FAILED and result.error:
+                logger.warning("%s: %s", result.input_path, result.error)
+            elif result.status == STATUS_SKIPPED:
+                logger.debug("skipped: %s", result.input_path)
+        return final_results
 
     def _run_serial(
         self,

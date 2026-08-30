@@ -17,7 +17,10 @@ runner = CliRunner()
 
 def _svg_dimensions(path: Path) -> tuple[int, int]:
     root = ET.fromstring(path.read_text(encoding="utf-8"))
-    return int(root.get("width")), int(root.get("height"))
+    width = root.get("width")
+    height = root.get("height")
+    assert width is not None and height is not None
+    return int(width), int(height)
 
 
 def test_convert_with_grayscale_and_scale(tmp_path: Path) -> None:
