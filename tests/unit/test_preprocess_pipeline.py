@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import random
 from pathlib import Path
 
 import pytest
@@ -32,6 +33,35 @@ def _png_bytes(
 def _decoded_size(data: bytes) -> tuple[int, int]:
     with Image.open(io.BytesIO(data)) as image:
         return image.size
+
+
+def _colorful_jpeg(seed: int = 1) -> bytes:
+    rng = random.Random(seed)
+    img = Image.new("RGB", (32, 32))
+    px = img.load()
+    for y in range(32):
+        for x in range(32):
+            px[x, y] = (rng.randrange(256), rng.randrange(256), rng.randrange(256))
+    buffer = io.BytesIO()
+    img.save(buffer, format="JPEG", quality=90)
+    return buffer.getvalue()
+
+
+def _colorful_rgba(seed: int = 2) -> bytes:
+    rng = random.Random(seed)
+    img = Image.new("RGBA", (32, 32))
+    px = img.load()
+    for y in range(32):
+        for x in range(32):
+            px[x, y] = (rng.randrange(256), rng.randrange(256), rng.randrange(256), 128)
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _distinct_colors(data: bytes) -> int:
+    with Image.open(io.BytesIO(data)) as image:
+        return len(image.getcolors(maxcolors=100000))
 
 
 def test_parse_resize_accepts_common_forms() -> None:
@@ -190,6 +220,49 @@ def test_grayscale_of_rgba_reencodes_as_png() -> None:
     assert result.image_format == "png"
     with Image.open(io.BytesIO(result.image_bytes)) as image:
         assert image.mode == "L"
+
+
+def test_pre_max_colors_crushes_to_n_colors() -> None:
+    result = apply_preprocessing(_colorful_jpeg(), "jpg", PreprocessConfig(pre_max_colors=6))
+    assert result.applied == ("pre_max_colors",)
+    assert _distinct_colors(result.image_bytes) <= 6
+
+
+@pytest.mark.parametrize("n", [1, 2, 4, 8, 16, 32, 64, 128, 256])
+def test_pre_max_colors_bounds(n: int) -> None:
+    result = apply_preprocessing(_colorful_jpeg(), "jpg", PreprocessConfig(pre_max_colors=n))
+    assert 1 <= _distinct_colors(result.image_bytes) <= n
+
+
+def test_pre_max_colors_forces_lossless_png() -> None:
+    result = apply_preprocessing(_colorful_jpeg(), "jpg", PreprocessConfig(pre_max_colors=8))
+    assert result.image_format == "png"
+    assert _distinct_colors(result.image_bytes) <= 8
+
+
+def test_pre_max_colors_runs_last_so_cap_holds_with_sharpen() -> None:
+    result = apply_preprocessing(
+        _colorful_jpeg(), "jpg", PreprocessConfig(sharpen=True, pre_max_colors=5)
+    )
+    assert result.applied == ("sharpen", "pre_max_colors")
+    assert _distinct_colors(result.image_bytes) <= 5
+
+
+def test_pre_max_colors_preserves_alpha() -> None:
+    result = apply_preprocessing(_colorful_rgba(), "png", PreprocessConfig(pre_max_colors=6))
+    with Image.open(io.BytesIO(result.image_bytes)) as image:
+        assert image.mode == "RGBA"
+        assert image.getpixel((16, 16))[3] == 128
+        assert len(image.convert("RGB").getcolors(maxcolors=100000)) <= 6
+
+
+def test_pre_max_colors_out_of_range_is_rejected() -> None:
+    with pytest.raises(ConfigError) as low:
+        PreprocessConfig.from_dict({"pre_max_colors": 0})
+    assert "pre_max_colors" in (low.value.hint or "")
+    with pytest.raises(ConfigError) as high:
+        PreprocessConfig.from_dict({"pre_max_colors": 257})
+    assert "pre_max_colors" in (high.value.hint or "")
 
 
 def test_uncodeable_input_is_an_input_error() -> None:

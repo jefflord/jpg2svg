@@ -252,6 +252,16 @@ SharpenOption = Annotated[
     typer.Option("--sharpen/--no-sharpen", help="Apply a conservative unsharp-mask."),
 ]
 
+PreMaxColorsOption = Annotated[
+    int | None,
+    typer.Option(
+        "--pre-max-colors",
+        help="Crush the raster to at most N colors (1-256) in the preprocessor, "
+        "before tracing (no dithering, flat regions). Distinct from --max-colors, "
+        "which is the vtracer-native palette option (needs VTracer 1.0).",
+    ),
+]
+
 OverwriteOption = Annotated[
     bool | None,
     typer.Option(
@@ -377,6 +387,7 @@ def resolve_preprocess(
     contrast: float | None = None,
     brightness: float | None = None,
     sharpen: bool | None = None,
+    pre_max_colors: int | None = None,
     file_values: dict[str, Any] | None = None,
 ) -> PreprocessConfig:
     """Resolve preprocessing: CLI flag > config file [preprocess] > default (PRD 8, 13)."""
@@ -398,6 +409,7 @@ def resolve_preprocess(
         "contrast": pick(contrast, "contrast", None),
         "brightness": pick(brightness, "brightness", None),
         "sharpen": bool(pick(sharpen, "sharpen", False)),
+        "pre_max_colors": pick(pre_max_colors, "pre_max_colors", None),
     }
     # from_dict translates validation errors into a ConfigError (exit code 2).
     return PreprocessConfig.from_dict(data)

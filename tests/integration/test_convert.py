@@ -15,6 +15,7 @@ from raster2svg.config.models import (
     ConversionConfig,
     CurveMode,
     OutputConfig,
+    PreprocessConfig,
 )
 from raster2svg.core.errors import (
     InputError,
@@ -63,6 +64,42 @@ def test_png_with_alpha(tmp_path: Path) -> None:
     )
     assert result.status == "success"
     _assert_valid_svg(tmp_path / "logo.svg")
+
+
+def _svg_fill_count(path: Path) -> int:
+    """Number of distinct non-'none' fill colors in an SVG document."""
+    root = ET.fromstring(path.read_text(encoding="utf-8"))
+    return len(
+        {
+            el.get("fill")
+            for el in root.iter()
+            if el.get("fill") and el.get("fill").lower() != "none"
+        }
+    )
+
+
+def test_pre_max_colors_reduces_svg_palette(tmp_path: Path) -> None:
+    """pre_max_colors crushes the raster before tracing, shrinking the SVG palette.
+
+    VTracer does its own color grouping on top of the crush, so the exact
+    fill count tracks (but is not strictly bounded by) N. The meaningful,
+    robust guarantee is that the palette is far smaller than the baseline.
+    """
+    converter = Converter()
+    baseline = tmp_path / "base.svg"
+    converter.convert(
+        FIXTURES / "fixture_photo.jpg", baseline, output=OutputConfig(overwrite=True)
+    )
+    crushed = tmp_path / "crushed.svg"
+    result = converter.convert(
+        FIXTURES / "fixture_photo.jpg",
+        crushed,
+        preprocess=PreprocessConfig(pre_max_colors=8),
+        output=OutputConfig(overwrite=True),
+    )
+    assert result.status == "success"
+    _assert_valid_svg(crushed)
+    assert 1 <= _svg_fill_count(crushed) < _svg_fill_count(baseline)
 
 
 def test_config_preset_is_applied(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

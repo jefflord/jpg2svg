@@ -38,7 +38,8 @@ def apply_preprocessing(
     """Run every enabled operation in a fixed, documented order.
 
     Operation order: auto-orientation, resize, max-width, max-height,
-    scale, grayscale, denoise, contrast, brightness, sharpen.
+    scale, grayscale, denoise, contrast, brightness, sharpen,
+    pre-max-colors (last, so the palette cap holds).
     """
     try:
         image: Image.Image = Image.open(io.BytesIO(image_bytes))
@@ -100,22 +101,35 @@ def apply_preprocessing(
         image = ops.sharpen(image)
         applied.append("sharpen")
 
+    if config.pre_max_colors is not None:
+        pre_max = config.pre_max_colors
+        image = ops.crush_colors(image, pre_max)
+        applied.append("pre_max_colors")
+
     if not applied:
         return PreprocessResult(image_bytes=image_bytes, image_format=image_format)
 
-    encoded, format_hint = _encode(image, image_format)
+    # A palette cap must survive re-encoding, so force lossless output.
+    lossless = config.pre_max_colors is not None
+    encoded, format_hint = _encode(image, image_format, lossless=lossless)
     return PreprocessResult(image_bytes=encoded, image_format=format_hint, applied=tuple(applied))
 
 
-def _encode(image: Image.Image, original_format: str) -> tuple[bytes, str]:
+def _encode(image: Image.Image, original_format: str, lossless: bool = False) -> tuple[bytes, str]:
     """Re-encode the processed image.
 
     JPEG inputs stay JPEG (lossless when the image is still RGB/L and the
     only change was e.g. a resize). Anything with an alpha channel or an
     exotic source format becomes PNG, which VTracer decodes reliably.
+    When ``lossless`` is set (a palette cap was applied) always use PNG so
+    the exact colors are preserved.
     """
     buffer = io.BytesIO()
-    if original_format.lower() in ("jpg", "jpeg") and image.mode in ("RGB", "L"):
+    if (
+        not lossless
+        and original_format.lower() in ("jpg", "jpeg")
+        and image.mode in ("RGB", "L")
+    ):
         image.save(buffer, format="JPEG", quality=JPEG_QUALITY)
         return buffer.getvalue(), "jpg"
     image.save(buffer, format="PNG")

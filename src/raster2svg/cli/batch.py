@@ -42,6 +42,7 @@ from raster2svg.cli.options import (
     PaletteFileOption,
     PaletteOption,
     PathPrecisionOption,
+    PreMaxColorsOption,
     PresetOption,
     ReportPathOption,
     ResizeOption,
@@ -179,6 +180,7 @@ def batch_command(
     contrast: ContrastOption = None,
     brightness: BrightnessOption = None,
     sharpen: SharpenOption = None,
+    pre_max_colors: PreMaxColorsOption = None,
     overwrite: OverwriteOption = None,
     no_mkdir: NoMkdirOption = None,
     validate_svg: ValidateSvgOption = None,
@@ -243,6 +245,7 @@ def batch_command(
         "contrast": contrast,
         "brightness": brightness,
         "sharpen": sharpen,
+        "pre_max_colors": pre_max_colors,
     }
 
     try:

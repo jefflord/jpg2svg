@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import sys
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
@@ -83,6 +84,7 @@ def test_help_documents_options() -> None:
         "--overwrite",
         "--dry-run",
         "--show-config",
+        "--pre-max-colors",
     ):
         assert flag in result.output
 
@@ -105,6 +107,43 @@ def test_cli_aliases_work(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0, result.output
     assert out.exists()
+
+
+def _svg_fill_count(path: Path) -> int:
+    root = ET.fromstring(path.read_text(encoding="utf-8"))
+    return len(
+        {
+            el.get("fill")
+            for el in root.iter()
+            if el.get("fill") and el.get("fill").lower() != "none"
+        }
+    )
+
+
+def test_pre_max_colors_flag(tmp_path: Path) -> None:
+    """--pre-max-colors crushes the palette before tracing (end-to-end)."""
+    baseline = tmp_path / "base.svg"
+    base = runner.invoke(
+        app,
+        ["convert", str(FIXTURES / "fixture_photo.jpg"), str(baseline), "--overwrite"],
+    )
+    assert base.exit_code == 0, base.output
+
+    out = tmp_path / "crushed.svg"
+    result = runner.invoke(
+        app,
+        [
+            "convert",
+            str(FIXTURES / "fixture_photo.jpg"),
+            str(out),
+            "--pre-max-colors",
+            "6",
+            "--overwrite",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert out.exists()
+    assert 1 <= _svg_fill_count(out) < _svg_fill_count(baseline)
 
 
 def test_version_command() -> None:

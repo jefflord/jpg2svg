@@ -84,6 +84,26 @@ def sharpen(image: Image.Image) -> Image.Image:
     return image.filter(ImageFilter.UnsharpMask(radius=1.5, percent=75, threshold=3))
 
 
+def crush_colors(image: Image.Image, n: int) -> Image.Image:
+    """Reduce the image to at most ``n`` distinct colors, without dithering.
+
+    Uses a flat (no dither) palette reduction so the result is clean,
+    posterized regions rather than a speckled pattern. The color count is
+    capped at ``n`` (Pillow palette limit is 256). Alpha, when present, is
+    quantized on the color channels and the original alpha is restored.
+    """
+    alpha = image.getchannel("A") if image.mode in ("RGBA", "LA") else None
+    base = image if image.mode == "RGB" else image.convert("RGB")
+    quantized = base.quantize(
+        colors=n,
+        method=Image.Quantize.MEDIANCUT,
+        dither=Image.Dither.NONE,
+    ).convert("RGB")
+    if alpha is not None:
+        quantized.putalpha(alpha)
+    return quantized
+
+
 def adjust_contrast(image: Image.Image, factor: float) -> Image.Image:
     """Adjust contrast (1.0 = unchanged). Alpha channels are left untouched."""
     if factor == 1.0:

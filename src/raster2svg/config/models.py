@@ -163,6 +163,10 @@ class PreprocessConfig(BaseModel):
     contrast: float | None = Field(default=None, ge=0, le=10)
     brightness: float | None = Field(default=None, ge=0, le=10)
     sharpen: bool = False
+    # Palette cap applied in the preprocessor (Pillow), before tracing.
+    # Distinct from ConversionConfig.max_colors (the vtracer-native option).
+    # Capped at 256 (Pillow palette limit); run last, dither-free.
+    pre_max_colors: int | None = Field(default=None, ge=1, le=256)
 
     @field_validator("resize")
     @classmethod

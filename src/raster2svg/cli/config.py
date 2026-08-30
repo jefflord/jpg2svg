@@ -230,6 +230,7 @@ def _render_toml(preset_name: str | None) -> str:
         "# contrast = 1.2  # 1.0 = unchanged, range 0-10",
         "# brightness = 1.1  # 1.0 = unchanged, range 0-10",
         "# sharpen = false",
+        "# pre_max_colors = 8  # crush to <= N colors (1-256), before tracing",
         "",
         "[output]",
         "# overwrite = false",
