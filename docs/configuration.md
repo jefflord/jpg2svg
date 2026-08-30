@@ -95,6 +95,12 @@ so the same file stays valid across VTracer versions.
 `palette` and `palette_file` are mutually exclusive. `adaptive` conflicts with
 an explicit `clustering` that is not `bw`.
 
+> **Note:** `color_precision` (bits per RGB channel) and `max_colors` (a hard
+> cap on the total number of distinct colors) are *different* settings. On the
+> installed VTracer 0.6.15, `color_precision` is supported but `max_colors` is
+> not — requesting `max_colors` raises a clear `UnsupportedFeatureError`. See
+> the README "Engine feature support" section.
+
 ## Preprocessing settings
 
 Applied before tracing. Identity / omitted values leave that aspect untouched.

@@ -159,6 +159,24 @@ With vtracer 0.6.15:
 | --- | --- |
 | `clustering` (color/binary), `hierarchical`, `mode` (pixel/polygon/spline), `filter_speckle`, `color_precision`, `layer_difference`, `corner_threshold`, `length_threshold`, `max_iterations`, `splice_threshold`, `path_precision` | `simplify`, `palette`, `max_colors`, `optimize`, binary/adaptive thresholding, `watershed` |
 
+Any "Not exposed" option you request (on the CLI or in a config file) is
+accepted by the parser but fails with a clear `UnsupportedFeatureError` (exit
+code 2) — it is never silently ignored. Run `raster2svg engine capabilities`
+to see exactly what your installed engine supports.
+
+> **`max_colors` vs `color_precision`** — these sound alike but do different
+> things:
+>
+> - **`color_precision`** (supported) = *bits per RGB channel* — how finely
+>   colors are quantized. `4` ≈ 16 levels per channel, `8` = full 256.
+>   Lowering it reduces color variety, but does not cap the palette size.
+> - **`max_colors`** (not exposed here) = a *hard cap on the total number of
+>   distinct colors* in the output (palette quantization to N colors, like an
+>   N-color GIF). This VTracer build has no such parameter.
+>
+> So `color_precision` is not a substitute for `max_colors`: it changes color
+> granularity, not the maximum palette count.
+
 Presets (`bw`, `photo`, `poster`) are application-level bundles of canonical
 settings; vtracer 0.6.x exposes no native preset API.
 
