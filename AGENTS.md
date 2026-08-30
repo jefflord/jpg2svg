@@ -7,6 +7,32 @@ Guidance for AI agents (and humans) working in this repo.
 - Python ≥ 3.12, hatchling, entry point `raster2svg` (see `pyproject.toml`).
 - Source: `src/raster2svg/` · Tests: `tests/` · Web UI: `src/raster2svg/web/` (all UI is inlined in `web/static/index.html`).
 
+## Engines (VTracer 1.0 CLI + 0.6.x Python)
+Two tracing engines can coexist; `Converter` picks per-conversion, 1.0 CLI first:
+- **VTracer 1.0 native CLI** (`engines/vtracer_cli.py`) — preferred. Discovery
+  order: `RASTER2SVG_VTRACER_BIN` env (full path) → `vtracer` on `PATH` →
+  `.venv/Bin/vtracer.exe` (CWD-relative; this repo stages the Windows release
+  binary at `.venv/Bin/vtracer.exe`). First candidate whose `--version` reports
+  1.x wins; probe results are cached per realpath. Windows-only.
+- **VTracer 0.6.x Python** (`engines/vtracer_engine.py`) — the `vtracer` PyPI
+  package; the only engine for the four 0.6-only smoothing thresholds
+  (`corner_threshold`, `length_threshold`, `max_iterations`, `splice_threshold`).
+- Smart fallback: a config mixing both families (e.g. `simplify` +
+  `corner_threshold`) is rejected by *every* engine → `UnsupportedFeatureError`
+  (exit 2, message lists the union of missing fields). Tests must use such
+  combos to exercise the error path (see `test_convert.py`).
+- Capability union: `core.capabilities.merge_capabilities`; CLI option help
+  markers and the web UI gate on the union, so options auto-activate when any
+  installed engine honours them. `build_cli_argv` is a pure function — unit
+  test it without a binary (`tests/unit/test_vtracer_cli.py`).
+- 0.6 binding gotcha: `corner_threshold`/`splice_threshold` are **ints** in the
+  C binding even though the config model/CLI accept floats — cast in
+  `VTracerEngine._translate`.
+- Golden SVGs (`tests/golden/`) are **pinned to the 0.6.x Python engine**
+  (`test_golden.py::_pinned_converter` and `generate_golden.py` build
+  `Converter(engine=VTracerEngine())`) until 1.0 exits alpha; regenerate them
+  with 1.0 final.
+
 ## Setup & common commands
 ```powershell
 python -m venv .venv
