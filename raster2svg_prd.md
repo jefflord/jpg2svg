@@ -964,6 +964,7 @@ resize_max_width = 0
 resize_max_height = 0
 denoise = false
 grayscale = false
+pre_max_colors = 16
 
 [output]
 overwrite = false
@@ -1191,6 +1192,16 @@ denoising.
 
 ``` text
 --sharpen
+```
+
+### Pre-max colors
+
+Cap the raster to at most N distinct colors in the preprocessor before tracing
+(no dithering). Preprocessor-side, so available on any VTracer version;
+distinct from the engine-native `max_colors` (VTracer 1.0).
+
+``` text
+--pre-max-colors 16
 ```
 
 ## 13.2 Preprocessing Philosophy
@@ -2033,6 +2044,7 @@ are true.
 3.  Grayscale.
 4.  Denoise.
 5.  Contrast/brightness/sharpen.
+6.  Pre-max colors (palette cap before tracing).
 
 ## Milestone 6: Packaging
 

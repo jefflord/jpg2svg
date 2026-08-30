@@ -117,6 +117,7 @@ Applied before tracing. Identity / omitted values leave that aspect untouched.
 | `contrast` | float | — | Contrast factor, 1.0 = unchanged, range 0-10. |
 | `brightness` | float | — | Brightness factor, 1.0 = unchanged, range 0-10. |
 | `sharpen` | bool | `false` | Conservative unsharp mask. |
+| `pre_max_colors` | int | — | Cap the raster to at most N colors (1-256) before tracing; no dithering (flat regions). Preprocessor-side — distinct from the engine `max_colors` (needs VTracer 1.0). |
 
 ## Output settings
 

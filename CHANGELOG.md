@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `--pre-max-colors N` (1-256): cap the raster to at most N colors in the
+  preprocessor (Pillow, no dithering) before tracing. Distinct from the
+  engine-side `--max-colors` (VTracer-native, needs VTracer 1.0). Also settable
+  as `pre_max_colors` under `[preprocess]`.
+
 ### Changed
 
 - `convert`/`batch` option help now clearly marks engine-dependent advanced

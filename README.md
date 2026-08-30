@@ -142,6 +142,7 @@ image.
 | `--denoise` / `--no-denoise` | Conservative median speckle removal |
 | `--contrast F` / `--brightness F` | Adjust tone (1.0 = unchanged) |
 | `--sharpen` / `--no-sharpen` | Conservative unsharp mask |
+| `--pre-max-colors N` | Cap the raster to at most N colors (1-256) before tracing; no dithering (flat regions) |
 
 The same settings can be placed in a config file under `[preprocess]`; CLI
 flags override file values.
@@ -176,6 +177,11 @@ to see exactly what your installed engine supports.
 >
 > So `color_precision` is not a substitute for `max_colors`: it changes color
 > granularity, not the maximum palette count.
+>
+> **`pre_max_colors`** (supported, preprocessor-side) applies the same N-color
+> palette cap in Pillow *before* tracing, so it works on any VTracer version.
+> Use `--pre-max-colors N` as the available equivalent until VTracer 1.0's
+> native `max_colors` lands.
 
 Presets (`bw`, `photo`, `poster`) are application-level bundles of canonical
 settings; vtracer 0.6.x exposes no native preset API.
