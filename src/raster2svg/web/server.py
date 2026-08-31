@@ -22,7 +22,7 @@ from typing import Any
 
 from raster2svg._version import __version__
 from raster2svg.config.models import ConversionConfig, PreprocessConfig
-from raster2svg.config.presets import available_presets
+from raster2svg.config.presets import available_presets, preset_details, resolve_preset
 from raster2svg.core.capabilities import (
     EngineCapabilities,
     merge_capabilities,
@@ -164,6 +164,9 @@ PREPROCESS_FIELDS: list[dict[str, Any]] = [
     },
     {"name": "grayscale", "label": "Grayscale", "kind": "bool", "default": False},
     {"name": "denoise", "label": "Denoise", "kind": "bool", "default": False},
+    {"name": "blur", "label": "Blur (smooth grain)", "kind": "bool", "default": False},
+    {"name": "posterize", "label": "Posterize (bits)", "kind": "int", "min": 1, "max": 8},
+    {"name": "autocontrast", "label": "Auto-contrast", "kind": "bool", "default": False},
     {"name": "sharpen", "label": "Sharpen", "kind": "bool", "default": False},
     {"name": "auto_orient", "label": "Auto-orient (EXIF)", "kind": "bool", "default": True},
     {"name": "contrast", "label": "Contrast", "kind": "float", "min": 0, "max": 10, "default": 1.0},
@@ -232,6 +235,7 @@ def build_info_payload(
         "available_advanced": available,
         "unavailable_advanced": unavailable,
         "presets": available_presets(),
+        "preset_details": preset_details(),
         "conversion_fields": _finalize_fields(CONVERSION_FIELDS, union),
         "preprocess_fields": _finalize_fields(PREPROCESS_FIELDS, union),
         "sample": {"name": sample_name} if sample_name else None,
@@ -364,7 +368,15 @@ class WebHandler(BaseHTTPRequestHandler):
         if preset is not None:
             conv_data["preset"] = preset
         conversion = ConversionConfig.from_dict(conv_data)
-        preprocess = PreprocessConfig.from_dict(options.get("preprocess") or {})
+
+        # PRD 8: the preset's [preprocess] section is the base layer; any
+        # preprocess value the UI sends explicitly overrides it field by field.
+        preprocess_data: dict[str, Any] = dict(options.get("preprocess") or {})
+        if preset is not None:
+            preset_base = resolve_preset(str(preset)).preprocess
+            if preset_base:
+                preprocess_data = {**preset_base, **preprocess_data}
+        preprocess = PreprocessConfig.from_dict(preprocess_data)
 
         started = time.perf_counter()
         svg, applied = self.server.context.convert_bytes(

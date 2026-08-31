@@ -48,7 +48,8 @@ def test_convert_bytes_expands_preset() -> None:
         _jpeg_bytes(), "jpg", config=ConversionConfig(preset="photo")
     )
     assert "<svg" in svg
-    assert applied == []
+    # The photo preset's preprocess base applies when no explicit preprocess is given.
+    assert applied == ["denoise"]
 
 
 def test_convert_bytes_rejects_unsupported_engine_feature() -> None:

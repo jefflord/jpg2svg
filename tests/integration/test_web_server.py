@@ -182,7 +182,8 @@ def test_convert_applies_preprocessing_options(webserver: WebServer) -> None:
         },
     )
     assert status == 200, result
-    assert set(result["applied"]) == {"pre_max_colors", "grayscale"}
+    # The photo preset's preprocess base (denoise) merges under the sent values.
+    assert set(result["applied"]) == {"denoise", "pre_max_colors", "grayscale"}
 
 
 def test_convert_unknown_session_is_409(webserver: WebServer) -> None:

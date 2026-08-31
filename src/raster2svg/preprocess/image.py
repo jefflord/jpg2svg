@@ -38,8 +38,8 @@ def apply_preprocessing(
     """Run every enabled operation in a fixed, documented order.
 
     Operation order: auto-orientation, resize, max-width, max-height,
-    scale, grayscale, denoise, contrast, brightness, sharpen,
-    pre-max-colors (last, so the palette cap holds).
+    scale, grayscale, denoise, blur, posterize, autocontrast, contrast,
+    brightness, sharpen, pre-max-colors (last, so the palette cap holds).
     """
     try:
         image: Image.Image = Image.open(io.BytesIO(image_bytes))
@@ -88,6 +88,19 @@ def apply_preprocessing(
     if config.denoise:
         image = ops.denoise(image)
         applied.append("denoise")
+
+    if config.blur:
+        image = ops.blur(image)
+        applied.append("blur")
+
+    if config.posterize is not None:
+        bits = config.posterize
+        image = ops.posterize(image, bits)
+        applied.append("posterize")
+
+    if config.autocontrast:
+        image = ops.autocontrast(image)
+        applied.append("autocontrast")
 
     if config.contrast is not None and config.contrast != 1.0:
         image = ops.adjust_contrast(image, config.contrast)

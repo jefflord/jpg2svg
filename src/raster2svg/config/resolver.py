@@ -55,7 +55,7 @@ def resolve_conversion_config(
     # with an actionable hint; resolve_preset follows the base chain.
     base: dict[str, Any] = {}
     if preset_name is not None:
-        base.update(resolve_preset(preset_name))
+        base.update(resolve_preset(preset_name).conversion)
 
     base.update(file_values)
     base.update(cli)

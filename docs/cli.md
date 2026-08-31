@@ -48,7 +48,7 @@ Available on every command (before the subcommand), PRD section 18:
 | `batch` | Convert a file or directory of images to SVG. |
 | `inspect` | Report an image's properties without converting. |
 | `config` | `show` / `init` configuration files. |
-| `preset` | `list` / `show` / `save` presets. |
+| `preset` | `list` / `show` / `save` / `compare` presets. |
 | `engine` | `capabilities` — what the installed VTracer supports. |
 | `web` | Serve the live web interface for real-time conversion and preview. |
 | `version` | Tool and tracing-engine versions. |
@@ -64,14 +64,14 @@ Input and output are accepted positionally or via `--input` / `--output`
 (named flag wins when both are given). The main conversion options are the
 `[conversion]` settings from [configuration.md](configuration.md#conversion-settings)
 as flags (e.g. `--clustering`, `--mode`, `--layer-difference`, `--simplify`),
-the `[preprocess]` settings (e.g. `--resize`, `--grayscale`, `--denoise`), and
+the `[preprocess]` settings (e.g. `--resize`, `--grayscale`, `--denoise`, `--blur`, `--posterize`, `--autocontrast`), and
 the `[output]` settings (`--overwrite`, `--validate-svg`, `--no-mkdir`).
 
 Useful flags:
 
 | Flag | Effect |
 | --- | --- |
-| `--preset NAME` | Starting preset (`bw`, `photo`, `poster`, or a saved custom preset). |
+| `--preset NAME` | Starting preset (one of the 12 built-ins such as `bw`, `photo`, `poster`, `clip-art`, or a saved custom preset). |
 | `--config PATH` | Config file (`.toml`/`.json`) for conversion + output settings. |
 | `--show-config` | Print the resolved configuration and exit (no conversion). |
 | `--dry-run` | Validate everything but do not write output. |
@@ -121,9 +121,10 @@ emits machine-readable output.
 
 | Subcommand | Effect |
 | --- | --- |
-| `preset list` | List built-in and custom presets with their resolved values. |
-| `preset show NAME` | Show all resolved values of one preset (base chain applied). |
+| `preset list` | List all presets with their description and recommended inputs. |
+| `preset show NAME` | Show metadata plus the resolved `[conversion]`/`[preprocess]` values (base chain applied). |
 | `preset save NAME --from-config FILE` | Save a custom preset from an existing config file. |
+| `preset compare IMAGE` | Convert one image with every preset (or `--presets`) and write an SVG + `report.json` for each. |
 
 ### `engine`
 

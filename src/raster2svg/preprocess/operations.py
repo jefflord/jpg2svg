@@ -7,6 +7,8 @@ deterministic so results are reproducible across runs.
 
 from __future__ import annotations
 
+from typing import cast
+
 from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
 _EXIF_ORIENTATION_TAG = 0x0112
@@ -82,6 +84,35 @@ def denoise(image: Image.Image) -> Image.Image:
 def sharpen(image: Image.Image) -> Image.Image:
     """Conservative sharpening (unsharp mask that ignores near-identical pixels)."""
     return image.filter(ImageFilter.UnsharpMask(radius=1.5, percent=75, threshold=3))
+
+
+def blur(image: Image.Image) -> Image.Image:
+    """Smooth photographic texture (Gaussian blur, radius 1.0)."""
+    return cast("Image.Image", image.filter(ImageFilter.GaussianBlur(radius=1.0)))
+
+
+def posterize(image: Image.Image, bits: int) -> Image.Image:
+    """Flatten every channel to ``2 ** bits`` levels (1-8 bits kept).
+
+    ``ImageOps.posterize`` does not accept alpha modes, so images with an
+    alpha channel are processed in RGB and the original alpha restored.
+    """
+    if image.mode in ("RGBA", "LA"):
+        alpha = image.getchannel("A")
+        result = ImageOps.posterize(image.convert("RGB"), bits)
+        result.putalpha(alpha)
+        return result
+    return ImageOps.posterize(image, bits)
+
+
+def autocontrast(image: Image.Image) -> Image.Image:
+    """Stretch the histogram to the full range. Alpha channels are left untouched."""
+    if image.mode in ("RGBA", "LA"):
+        alpha = image.getchannel("A")
+        result = ImageOps.autocontrast(image.convert("RGB"))
+        result.putalpha(alpha)
+        return result
+    return ImageOps.autocontrast(image)
 
 
 def crush_colors(image: Image.Image, n: int) -> Image.Image:

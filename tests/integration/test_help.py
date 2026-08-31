@@ -78,7 +78,7 @@ def test_config_help_show() -> None:
 def test_preset_help_list() -> None:
     result = runner.invoke(app, ["preset", "help", "list"])
     assert result.exit_code == 0, result.output
-    assert "List the built-in and custom presets" in result.output
+    assert "List all presets with their description and recommended inputs" in result.output
 
 
 def test_engine_help() -> None:

@@ -18,6 +18,7 @@ from PIL import Image, UnidentifiedImageError
 
 from raster2svg._version import __version__
 from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
+from raster2svg.config.presets import resolve_preset
 from raster2svg.config.resolver import resolve_conversion_config
 from raster2svg.core.capabilities import EngineCapabilities, merge_capabilities
 from raster2svg.core.errors import InputError, OutputError, UnsupportedFeatureError
@@ -103,7 +104,7 @@ class Converter:
         input_path = Path(input_path)
         output_cfg = output or OutputConfig()
         conversion_cfg = _apply_preset(config or ConversionConfig())
-        preprocess_cfg = preprocess or PreprocessConfig()
+        preprocess_cfg = preprocess or _preset_preprocess(conversion_cfg)
 
         input_path = validate_input_path(input_path)
         target = Path(output_path) if output_path is not None else default_output_path(input_path)
@@ -194,7 +195,7 @@ class Converter:
         Raises a subclass of Raster2SvgError on any failure.
         """
         conversion_cfg = _apply_preset(config or ConversionConfig())
-        preprocess_cfg = preprocess or PreprocessConfig()
+        preprocess_cfg = preprocess or _preset_preprocess(conversion_cfg)
         prepared = apply_preprocessing(image_bytes, image_format, preprocess_cfg)
         engine = self._select_engine(conversion_cfg)
         svg = engine.trace(
@@ -247,6 +248,18 @@ def _apply_preset(config: ConversionConfig) -> ConversionConfig:
         return config
     other = {key: value for key, value in config.model_dump().items() if key != "preset"}
     return resolve_conversion_config(preset=config.preset, config_file_values=other)
+
+
+def _preset_preprocess(config: ConversionConfig) -> PreprocessConfig:
+    """The preset's [preprocess] section, used when none was passed explicitly.
+
+    Library callers pass ``ConversionConfig(preset="clip-art")`` and expect
+    the preset to supply *both* the tracing and the preprocessing starting
+    values; an explicit ``PreprocessConfig`` always wins as-is.
+    """
+    if config.preset is None:
+        return PreprocessConfig()
+    return PreprocessConfig.from_dict(resolve_preset(config.preset).preprocess)
 
 
 def _config_dict(config: ConversionConfig) -> dict[str, Any]:

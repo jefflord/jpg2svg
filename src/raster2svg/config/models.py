@@ -160,6 +160,12 @@ class PreprocessConfig(BaseModel):
     scale: float | None = Field(default=None, gt=0)
     grayscale: bool = False
     denoise: bool = False
+    # Gaussian blur (radius 1.0) to smooth photographic texture.
+    blur: bool = False
+    # Flatten each channel to 2**bits levels (1-8 bits kept, Pillow posterize).
+    posterize: int | None = Field(default=None, ge=1, le=8)
+    # Stretch the histogram to the full range after level-flattening.
+    autocontrast: bool = False
     contrast: float | None = Field(default=None, ge=0, le=10)
     brightness: float | None = Field(default=None, ge=0, le=10)
     sharpen: bool = False

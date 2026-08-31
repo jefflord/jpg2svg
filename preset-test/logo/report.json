@@ -1,0 +1,302 @@
+{
+  "input": "corpus\\logo.png",
+  "generated_at": "2026-08-31T01:01:39.790876+00:00",
+  "results": [
+    {
+      "preset": "bw",
+      "status": "success",
+      "duration_ms": 31,
+      "output_bytes": 1979,
+      "svg_path": "preset-test\\logo\\logo-bw.svg",
+      "path_count": 3,
+      "conversion": {
+        "clustering": "bw",
+        "hierarchical": "stacked",
+        "mode": "spline",
+        "binary_threshold": 128,
+        "filter_speckle": 4,
+        "simplify": 1.0,
+        "optimize": 1,
+        "path_precision": 3
+      },
+      "preprocess": {
+        "grayscale": true,
+        "denoise": true,
+        "autocontrast": true
+      }
+    },
+    {
+      "preset": "clip-art",
+      "status": "success",
+      "duration_ms": 50,
+      "output_bytes": 5016,
+      "svg_path": "preset-test\\logo\\logo-clip-art.svg",
+      "path_count": 11,
+      "conversion": {
+        "clustering": "color-cluster",
+        "hierarchical": "stacked",
+        "mode": "spline",
+        "color_precision": 4,
+        "layer_difference": 24,
+        "max_colors": 32,
+        "filter_speckle": 8,
+        "simplify": 2.0,
+        "optimize": 2,
+        "path_precision": 3
+      },
+      "preprocess": {
+        "denoise": true,
+        "blur": true,
+        "posterize": 5,
+        "autocontrast": true,
+        "pre_max_colors": 96
+      }
+    },
+    {
+      "preset": "clip-art-soft",
+      "status": "success",
+      "duration_ms": 47,
+      "output_bytes": 2117,
+      "svg_path": "preset-test\\logo\\logo-clip-art-soft.svg",
+      "path_count": 4,
+      "conversion": {
+        "clustering": "color-cluster",
+        "hierarchical": "stacked",
+        "mode": "spline",
+        "color_precision": 5,
+        "layer_difference": 16,
+        "max_colors": 64,
+        "filter_speckle": 4,
+        "simplify": 1.0,
+        "optimize": 1,
+        "path_precision": 3
+      },
+      "preprocess": {
+        "denoise": true,
+        "posterize": 6,
+        "autocontrast": true,
+        "pre_max_colors": 128
+      }
+    },
+    {
+      "preset": "clip-art-strong",
+      "status": "success",
+      "duration_ms": 55,
+      "output_bytes": 4086,
+      "svg_path": "preset-test\\logo\\logo-clip-art-strong.svg",
+      "path_count": 6,
+      "conversion": {
+        "clustering": "color-cluster",
+        "hierarchical": "stacked",
+        "mode": "spline",
+        "color_precision": 3,
+        "layer_difference": 32,
+        "max_colors": 16,
+        "filter_speckle": 12,
+        "simplify": 3.0,
+        "optimize": 2,
+        "path_precision": 2
+      },
+      "preprocess": {
+        "denoise": true,
+        "blur": true,
+        "posterize": 4,
+        "autocontrast": true,
+        "pre_max_colors": 48
+      }
+    },
+    {
+      "preset": "comic",
+      "status": "success",
+      "duration_ms": 51,
+      "output_bytes": 2940,
+      "svg_path": "preset-test\\logo\\logo-comic.svg",
+      "path_count": 6,
+      "conversion": {
+        "clustering": "color-cluster",
+        "hierarchical": "stacked",
+        "mode": "spline",
+        "color_precision": 3,
+        "layer_difference": 28,
+        "max_colors": 32,
+        "filter_speckle": 8,
+        "simplify": 2.0,
+        "optimize": 2,
+        "path_precision": 3
+      },
+      "preprocess": {
+        "denoise": true,
+        "blur": true,
+        "posterize": 4,
+        "autocontrast": true,
+        "contrast": 1.4
+      }
+    },
+    {
+      "preset": "flat-illustration",
+      "status": "success",
+      "duration_ms": 43,
+      "output_bytes": 4594,
+      "svg_path": "preset-test\\logo\\logo-flat-illustration.svg",
+      "path_count": 11,
+      "conversion": {
+        "clustering": "color-cluster",
+        "hierarchical": "stacked",
+        "mode": "spline",
+        "color_precision": 4,
+        "layer_difference": 20,
+        "max_colors": 48,
+        "filter_speckle": 4,
+        "simplify": 1.5,
+        "optimize": 1,
+        "path_precision": 3
+      },
+      "preprocess": {
+        "denoise": true,
+        "blur": true,
+        "posterize": 5,
+        "autocontrast": true
+      }
+    },
+    {
+      "preset": "line-art",
+      "status": "success",
+      "duration_ms": 30,
+      "output_bytes": 1792,
+      "svg_path": "preset-test\\logo\\logo-line-art.svg",
+      "path_count": 3,
+      "conversion": {
+        "clustering": "bw",
+        "hierarchical": "stacked",
+        "mode": "spline",
+        "adaptive": true,
+        "adaptive_window": 31,
+        "adaptive_t": 25,
+        "filter_speckle": 6,
+        "simplify": 1.0,
+        "optimize": 1,
+        "path_precision": 3
+      },
+      "preprocess": {
+        "grayscale": true,
+        "denoise": true,
+        "blur": true
+      }
+    },
+    {
+      "preset": "logo-cleanup",
+      "status": "success",
+      "duration_ms": 45,
+      "output_bytes": 2347,
+      "svg_path": "preset-test\\logo\\logo-logo-cleanup.svg",
+      "path_count": 4,
+      "conversion": {
+        "clustering": "color-cluster",
+        "hierarchical": "stacked",
+        "mode": "spline",
+        "color_precision": 5,
+        "layer_difference": 8,
+        "max_colors": 24,
+        "filter_speckle": 6,
+        "simplify": 1.0,
+        "optimize": 2,
+        "path_precision": 4
+      },
+      "preprocess": {
+        "denoise": true
+      }
+    },
+    {
+      "preset": "photo",
+      "status": "success",
+      "duration_ms": 43,
+      "output_bytes": 2862,
+      "svg_path": "preset-test\\logo\\logo-photo.svg",
+      "path_count": 6,
+      "conversion": {
+        "clustering": "color-cluster",
+        "hierarchical": "stacked",
+        "mode": "spline",
+        "color_precision": 6,
+        "layer_difference": 12,
+        "filter_speckle": 2,
+        "simplify": 1.0,
+        "optimize": 1,
+        "path_precision": 3
+      },
+      "preprocess": {
+        "denoise": true
+      }
+    },
+    {
+      "preset": "pixel-art",
+      "status": "success",
+      "duration_ms": 53,
+      "output_bytes": 11932,
+      "svg_path": "preset-test\\logo\\logo-pixel-art.svg",
+      "path_count": 4,
+      "conversion": {
+        "clustering": "color-cluster",
+        "hierarchical": "stacked",
+        "mode": "pixel",
+        "color_precision": 5,
+        "layer_difference": 16,
+        "max_colors": 32,
+        "filter_speckle": 1,
+        "simplify": 0.5,
+        "optimize": 1
+      },
+      "preprocess": {}
+    },
+    {
+      "preset": "poster",
+      "status": "success",
+      "duration_ms": 42,
+      "output_bytes": 2787,
+      "svg_path": "preset-test\\logo\\logo-poster.svg",
+      "path_count": 6,
+      "conversion": {
+        "clustering": "color-cluster",
+        "hierarchical": "cutout",
+        "mode": "spline",
+        "color_precision": 4,
+        "layer_difference": 24,
+        "max_colors": 16,
+        "filter_speckle": 4,
+        "simplify": 2.0,
+        "optimize": 2,
+        "path_precision": 3
+      },
+      "preprocess": {
+        "denoise": true,
+        "posterize": 4,
+        "autocontrast": true,
+        "pre_max_colors": 64
+      }
+    },
+    {
+      "preset": "silhouette",
+      "status": "success",
+      "duration_ms": 34,
+      "output_bytes": 1174,
+      "svg_path": "preset-test\\logo\\logo-silhouette.svg",
+      "path_count": 3,
+      "conversion": {
+        "clustering": "bw",
+        "hierarchical": "stacked",
+        "mode": "spline",
+        "binary_threshold": 110,
+        "filter_speckle": 12,
+        "simplify": 3.0,
+        "optimize": 2,
+        "path_precision": 2
+      },
+      "preprocess": {
+        "grayscale": true,
+        "denoise": true,
+        "blur": true,
+        "autocontrast": true
+      }
+    }
+  ]
+}

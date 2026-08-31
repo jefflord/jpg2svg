@@ -141,6 +141,9 @@ image.
 | `--scale F` | Scale both dimensions by factor `F` |
 | `--grayscale` / `--color` | Convert to grayscale (default: color) |
 | `--denoise` / `--no-denoise` | Conservative median speckle removal |
+| `--blur` / `--no-blur` | Gentle Gaussian blur to soften noise |
+| `--posterize N` | Reduce to N bits per channel (1-8), flattening gradients into bands |
+| `--autocontrast` / `--no-autocontrast` | Stretch contrast to the image's full range |
 | `--contrast F` / `--brightness F` | Adjust tone (1.0 = unchanged) |
 | `--sharpen` / `--no-sharpen` | Conservative unsharp mask |
 | `--pre-max-colors N` | Cap the raster to at most N colors (1-256) before tracing; no dithering (flat regions) |
@@ -211,8 +214,10 @@ and what each supports.
 > setups where only the 0.6.x Python engine is installed and `max_colors` is
 > unavailable.
 
-Presets (`bw`, `photo`, `poster`) are application-level bundles of canonical
-settings; vtracer 0.6.x exposes no native preset API.
+Presets (`bw`, `photo`, `poster`, `clip-art`, `line-art`, `pixel-art`, and
+nine more) are application-level bundles of canonical `[conversion]` and
+`[preprocess]` settings; VTracer exposes no native preset API, so they map onto
+the shared option surface. See [docs/presets.md](docs/presets.md).
 
 ## Documentation
 

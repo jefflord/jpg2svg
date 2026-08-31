@@ -14,6 +14,7 @@ import typer
 
 from raster2svg.config.loader import load_config_file
 from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
+from raster2svg.config.presets import resolve_preset
 from raster2svg.config.resolver import resolve_conversion_config
 from raster2svg.config.user_config import load_user_config
 from raster2svg.core.capabilities import EngineCapabilities, merge_capabilities
@@ -44,7 +45,8 @@ PresetOption = Annotated[
     str | None,
     typer.Option(
         "--preset",
-        help="Starting preset: bw, photo, poster, or a saved custom preset.",
+        help="Starting preset (e.g. bw, photo, poster, clip-art, line-art, pixel-art), "
+        "or a saved custom preset. See: raster2svg preset list.",
     ),
 ]
 
@@ -242,6 +244,30 @@ DenoiseOption = Annotated[
     typer.Option("--denoise/--no-denoise", help="Apply a conservative speckle denoiser."),
 ]
 
+BlurOption = Annotated[
+    bool | None,
+    typer.Option(
+        "--blur/--no-blur",
+        help="Apply a light Gaussian blur to smooth grain before tracing.",
+    ),
+]
+
+PosterizeOption = Annotated[
+    int | None,
+    typer.Option(
+        "--posterize",
+        help="Reduce to N bits per channel (1-8) for flat, posterized colors.",
+    ),
+]
+
+AutocontrastOption = Annotated[
+    bool | None,
+    typer.Option(
+        "--autocontrast/--no-autocontrast",
+        help="Stretch the color range to full contrast (cuts haze).",
+    ),
+]
+
 ContrastOption = Annotated[
     float | None,
     typer.Option("--contrast", help="Contrast factor, 1.0 = unchanged, 0-10."),
@@ -389,6 +415,9 @@ def resolve_preprocess(
     scale: float | None = None,
     grayscale: bool | None = None,
     denoise: bool | None = None,
+    blur: bool | None = None,
+    posterize: int | None = None,
+    autocontrast: bool | None = None,
     contrast: float | None = None,
     brightness: float | None = None,
     sharpen: bool | None = None,
@@ -411,6 +440,9 @@ def resolve_preprocess(
         "scale": pick(scale, "scale", None),
         "grayscale": bool(pick(grayscale, "grayscale", False)),
         "denoise": bool(pick(denoise, "denoise", False)),
+        "blur": bool(pick(blur, "blur", False)),
+        "posterize": pick(posterize, "posterize", None),
+        "autocontrast": bool(pick(autocontrast, "autocontrast", False)),
         "contrast": pick(contrast, "contrast", None),
         "brightness": pick(brightness, "brightness", None),
         "sharpen": bool(pick(sharpen, "sharpen", False)),
@@ -454,8 +486,17 @@ def resolve_cli_options(
         cli_values=cli_values,
     )
     output_cfg = resolve_output(overwrite, validate_svg, no_mkdir, file_cfg.get("output") or {})
+
+    # PRD 8: the preset's [preprocess] section sits below the config file's
+    # [preprocess] (which itself sits below CLI flags), exactly like its
+    # [conversion] section does in resolve_conversion_config.
+    file_values = dict(file_cfg.get("preprocess") or {})
+    if config.preset is not None:
+        preset_base = resolve_preset(config.preset).preprocess
+        if preset_base:
+            file_values = {**preset_base, **file_values}
     preprocess_cfg = resolve_preprocess(
         **(preprocess_kwargs or {}),
-        file_values=file_cfg.get("preprocess") or {},
+        file_values=file_values,
     )
     return config, output_cfg, preprocess_cfg

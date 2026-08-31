@@ -18,7 +18,7 @@ from raster2svg.cli.convert import _fail, _print_resolved_config
 from raster2svg.cli.help import make_group_help_command
 from raster2svg.cli.options import resolve_output, resolve_preprocess
 from raster2svg.config.loader import load_config_file
-from raster2svg.config.presets import available_presets, get_preset
+from raster2svg.config.presets import available_presets, resolve_preset
 from raster2svg.config.resolver import resolve_conversion_config
 from raster2svg.config.user_config import load_user_config
 from raster2svg.core.errors import ConfigError, Raster2SvgError
@@ -53,7 +53,8 @@ def config_show_command(
     preset: Annotated[
         str | None,
         typer.Option(
-            "--preset", help="Preset to apply: bw, photo, poster, or a saved custom preset."
+            "--preset",
+            help="Preset to apply (e.g. bw, photo, poster, clip-art), or a saved custom preset.",
         ),
     ] = None,
     out_format: Annotated[
@@ -95,7 +96,14 @@ def config_show_command(
     except Raster2SvgError as exc:
         _fail(exc)
 
-    preprocess_cfg = resolve_preprocess(file_values=(file_cfg or {}).get("preprocess") or {})
+    # PRD 8: the preset's [preprocess] section sits below the config file's
+    # [preprocess] values, mirroring its [conversion] section above.
+    preprocess_file_values = dict((file_cfg or {}).get("preprocess") or {})
+    if resolved.preset is not None:
+        preset_base = resolve_preset(resolved.preset).preprocess
+        if preset_base:
+            preprocess_file_values = {**preset_base, **preprocess_file_values}
+    preprocess_cfg = resolve_preprocess(file_values=preprocess_file_values)
 
     if out_format == "json":
         payload: dict[str, object] = {
@@ -192,8 +200,29 @@ def _toml_value(value: object) -> str:
     return json.dumps(str(value))
 
 
+# (field, example value, comment) - order matches the PreprocessConfig fields.
+_PREPROCESS_DOCS: tuple[tuple[str, str, str], ...] = (
+    ("auto_orient", "true", "apply EXIF orientation before tracing"),
+    ("resize", '"1920x1080"', "fit within WxH, preserving aspect"),
+    ("max_width", "1920", "shrink so width <= N"),
+    ("max_height", "1080", "shrink so height <= N"),
+    ("scale", "0.5", "scale both dimensions by a factor"),
+    ("grayscale", "false", "convert the image to grayscale"),
+    ("denoise", "false", "conservative speckle denoiser"),
+    ("blur", "false", "light Gaussian blur to smooth grain before tracing"),
+    ("posterize", "4", "flatten to 2**bits levels (1-8 bits per channel)"),
+    ("autocontrast", "false", "stretch the color range to full contrast"),
+    ("contrast", "1.2", "1.0 = unchanged, range 0-10"),
+    ("brightness", "1.1", "1.0 = unchanged, range 0-10"),
+    ("sharpen", "false", "conservative unsharp mask"),
+    ("pre_max_colors", "8", "crush to <= N colors (1-256), before tracing"),
+)
+
+
 def _render_toml(preset_name: str | None) -> str:
-    preset_values = dict(get_preset(preset_name)) if preset_name else {}
+    resolved = resolve_preset(preset_name) if preset_name else None
+    conversion_values = resolved.conversion if resolved is not None else {}
+    preprocess_values = resolved.preprocess if resolved is not None else {}
     preset_note = f" --preset {preset_name}" if preset_name else ""
     lines: list[str] = [
         "# raster2svg configuration file",
@@ -209,28 +238,22 @@ def _render_toml(preset_name: str | None) -> str:
     if preset_name is not None:
         lines.append(f'preset = "{preset_name}"')
     else:
-        lines.append('# preset = "photo"  # bw | photo | poster')
+        lines.append('# preset = "photo"  # e.g. bw | photo | poster | clip-art | line-art')
 
     for field, example, doc in _FIELD_DOCS:
-        if field in preset_values:
-            lines.append(f"{field} = {_toml_value(preset_values[field])}")
+        if field in conversion_values:
+            lines.append(f"{field} = {_toml_value(conversion_values[field])}")
+        else:
+            lines.append(f"# {field} = {example}  # {doc}")
+
+    lines += ["", "[preprocess]"]
+    for field, example, doc in _PREPROCESS_DOCS:
+        if field in preprocess_values:
+            lines.append(f"{field} = {_toml_value(preprocess_values[field])}")
         else:
             lines.append(f"# {field} = {example}  # {doc}")
 
     lines += [
-        "",
-        "[preprocess]",
-        "# auto_orient = true  # apply EXIF orientation before tracing",
-        '# resize = "1920x1080"  # fit within WxH, preserving aspect',
-        "# max_width = 1920  # shrink so width <= N",
-        "# max_height = 1080  # shrink so height <= N",
-        "# scale = 0.5  # scale both dimensions by a factor",
-        "# grayscale = false",
-        "# denoise = false",
-        "# contrast = 1.2  # 1.0 = unchanged, range 0-10",
-        "# brightness = 1.1  # 1.0 = unchanged, range 0-10",
-        "# sharpen = false",
-        "# pre_max_colors = 8  # crush to <= N colors (1-256), before tracing",
         "",
         "[output]",
         "# overwrite = false",

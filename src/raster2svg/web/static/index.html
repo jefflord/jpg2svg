@@ -98,7 +98,14 @@
 
   .preset-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
   .preset-row label { color: var(--muted); font-size: 12.5px; }
-  .preset-row select { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; flex: 1; }
+  .preset-row select, .preset-row input {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 9px; flex: 1; min-width: 0;
+  }
+  .preset-row input:focus, .preset-row select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+  .user-presets .preset-row:last-child { margin-bottom: 0; }
+  .preset-desc { margin: -2px 0 8px 0; color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+  .preset-desc .best { color: var(--text); }
   .ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 7px 11px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
   .ghost:hover { color: var(--text); border-color: var(--muted); }
 
@@ -166,6 +173,22 @@
       <select id="preset"><option value="">(none &mdash; engine defaults)</option></select>
       <button class="ghost" id="resetAll" type="button">Reset all</button>
     </div>
+    <div class="preset-desc" id="presetDesc" aria-live="polite"></div>
+
+    <fieldset class="user-presets">
+      <legend>My presets <span class="note">saved in this browser</span></legend>
+      <div class="preset-row">
+        <label for="userPresetName">Save current as</label>
+        <input id="userPresetName" type="text" placeholder="e.g. logo-tight" maxlength="60" autocomplete="off">
+        <button class="ghost" id="userPresetSave" type="button">Save</button>
+      </div>
+      <div class="preset-row">
+        <label for="userPreset">Saved</label>
+        <select id="userPreset"><option value="">(none saved)</option></select>
+        <button class="ghost" id="userPresetLoad" type="button" disabled>Load</button>
+        <button class="ghost" id="userPresetDelete" type="button" title="Delete the selected preset" disabled>&times;</button>
+      </div>
+    </fieldset>
   </section>
 
   <section class="preview panel preview-pane" aria-label="Preview">
@@ -223,6 +246,7 @@ async function init() {
   renderHeader();
   renderGroups();
   renderPresets();
+  wireUserPresets();
   wireUpload();
   wirePreview();
   $("#convertBtn").addEventListener("click", () => convertNow(false));
@@ -363,6 +387,20 @@ function makeFieldset(title, fields, isAdvanced) {
   return fs;
 }
 
+function updatePresetDesc() {
+  const name = $("#preset").value;
+  const box = $("#presetDesc");
+  const info = (state.info.preset_details || {})[name];
+  if (!name || !info) { box.hidden = true; box.textContent = ""; return; }
+  const parts = [];
+  if (info.description) parts.push(info.description);
+  if (info.recommended_for && info.recommended_for.length) {
+    parts.push('<span class="best">Best for: ' + info.recommended_for.join(", ") + ".</span>");
+  }
+  box.innerHTML = parts.join(" ");
+  box.hidden = false;
+}
+
 function renderPresets() {
   const sel = $("#preset");
   for (const name of state.info.presets) {
@@ -370,7 +408,8 @@ function renderPresets() {
     o.value = name; o.textContent = name;
     sel.appendChild(o);
   }
-  sel.addEventListener("change", scheduleConvert);
+  sel.addEventListener("change", () => { updatePresetDesc(); scheduleConvert(); });
+  updatePresetDesc();
 }
 
 function collectOptions() {
@@ -410,7 +449,116 @@ function resetAll() {
     else el.value = "";
   }
   $("#preset").value = "";
+  updatePresetDesc();
   scheduleConvert();
+}
+
+/* ---- my presets (browser localStorage) ---- */
+const USER_PRESETS_KEY = "raster2svg.userPresets.v1";
+
+function loadUserPresets() {
+  try {
+    const data = JSON.parse(localStorage.getItem(USER_PRESETS_KEY) || "{}");
+    return (data && typeof data === "object" && !Array.isArray(data)) ? data : {};
+  } catch { return {}; }
+}
+
+function persistUserPresets(map) {
+  try {
+    localStorage.setItem(USER_PRESETS_KEY, JSON.stringify(map));
+    return true;
+  } catch (err) {
+    showStatus("Could not write to this browser's storage: " + err, true);
+    return false;
+  }
+}
+
+function renderUserPresets(selectName) {
+  const sel = $("#userPreset");
+  const map = loadUserPresets();
+  sel.innerHTML = "";
+  const empty = document.createElement("option");
+  empty.value = ""; empty.textContent = "(none saved)";
+  sel.appendChild(empty);
+  for (const name of Object.keys(map).sort()) {
+    const o = document.createElement("option");
+    o.value = name; o.textContent = name;
+    sel.appendChild(o);
+  }
+  sel.value = (selectName && map[selectName]) ? selectName : "";
+  syncUserPresetButtons();
+}
+
+function syncUserPresetButtons() {
+  const has = $("#userPreset").value !== "";
+  $("#userPresetLoad").disabled = !has;
+  $("#userPresetDelete").disabled = !has;
+}
+
+function setFieldFromValue(el, field, val) {
+  if (field.kind === "bool") { el.checked = val === true; return; }
+  if (field.kind === "palette") {
+    el.value = Array.isArray(val) ? val.join(", ") : (val === null || val === undefined ? "" : String(val));
+    return;
+  }
+  el.value = (val === null || val === undefined) ? "" : String(val);
+}
+
+function applyUserPreset(name) {
+  const p = loadUserPresets()[name];
+  if (!p) return;
+  const conv = (p.conversion && typeof p.conversion === "object") ? p.conversion : {};
+  const pre = (p.preprocess && typeof p.preprocess === "object") ? p.preprocess : {};
+  for (const field of state.info.conversion_fields) {
+    const el = document.querySelector('input[data-field="' + field.name + '"], select[data-field="' + field.name + '"]');
+    if (el && !el.disabled) setFieldFromValue(el, field, conv[field.name]);
+  }
+  for (const field of state.info.preprocess_fields) {
+    const el = document.querySelector('input[data-field="' + field.name + '"], select[data-field="' + field.name + '"]');
+    if (el && !el.disabled) setFieldFromValue(el, field, pre[field.name]);
+  }
+  $("#preset").value = (typeof p.preset === "string" && p.preset) ? p.preset : "";
+  updatePresetDesc();
+  scheduleConvert();
+}
+
+function saveNamedPreset() {
+  const name = $("#userPresetName").value.trim();
+  if (!name) { showStatus("Give the preset a name first.", true); return; }
+  const map = loadUserPresets();
+  map[name] = Object.assign({ saved_at: new Date().toISOString() }, collectOptions());
+  if (!persistUserPresets(map)) return;
+  $("#userPresetName").value = "";
+  renderUserPresets(name);
+  showStatus("Saved preset \u201C" + name + "\u201D in this browser.");
+  setTimeout(hideStatus, 3000);
+}
+
+function deleteUserPreset() {
+  const name = $("#userPreset").value;
+  if (!name) return;
+  if (!window.confirm('Delete preset "' + name + '"?')) return;
+  const map = loadUserPresets();
+  delete map[name];
+  if (!persistUserPresets(map)) return;
+  renderUserPresets("");
+  showStatus("Deleted preset \u201C" + name + "\u201D.");
+  setTimeout(hideStatus, 3000);
+}
+
+function wireUserPresets() {
+  renderUserPresets("");
+  $("#userPresetSave").addEventListener("click", saveNamedPreset);
+  $("#userPresetName").addEventListener("keydown", (e) => { if (e.key === "Enter") saveNamedPreset(); });
+  $("#userPresetLoad").addEventListener("click", () => {
+    const name = $("#userPreset").value;
+    if (!name) return;
+    applyUserPreset(name);
+    showStatus("Loaded preset \u201C" + name + "\u201D.");
+    setTimeout(hideStatus, 3000);
+  });
+  $("#userPresetDelete").addEventListener("click", deleteUserPreset);
+  $("#userPreset").addEventListener("change", syncUserPresetButtons);
 }
 
 /* ---- upload ---- */

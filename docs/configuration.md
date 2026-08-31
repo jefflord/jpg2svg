@@ -114,6 +114,9 @@ Applied before tracing. Identity / omitted values leave that aspect untouched.
 | `scale` | float | — | Scale both dimensions by a factor (e.g. `0.5`). |
 | `grayscale` | bool | `false` | Convert to grayscale. |
 | `denoise` | bool | `false` | Conservative median speckle removal. |
+| `blur` | bool | `false` | Gentle Gaussian blur to soften noise before tracing. |
+| `posterize` | int | — | Reduce to N bits per channel (1-8), flattening gradients into bands. |
+| `autocontrast` | bool | `false` | Stretch contrast to the image's full range. |
 | `contrast` | float | — | Contrast factor, 1.0 = unchanged, range 0-10. |
 | `brightness` | float | — | Brightness factor, 1.0 = unchanged, range 0-10. |
 | `sharpen` | bool | `false` | Conservative unsharp mask. |
