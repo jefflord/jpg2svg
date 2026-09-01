@@ -62,6 +62,7 @@ def test_info_payload_shape() -> None:
         "presets",
         "conversion_fields",
         "preprocess_fields",
+        "postprocess_fields",
     ):
         assert key in info
     assert info["engine"]["name"] == "vtracer"
@@ -103,3 +104,11 @@ def test_pre_max_colors_is_the_starred_preprocess_option() -> None:
     assert field["unavailable"] is False
     assert field["min"] == 1
     assert field["max"] == 256
+
+
+def test_invert_is_a_boolean_postprocess_option() -> None:
+    post = _by_name(build_info_payload(detect_vtracer_capabilities())["postprocess_fields"])
+    field = post["invert"]
+    assert field["kind"] == "bool"
+    assert field["default"] is False
+    assert field["unavailable"] is False

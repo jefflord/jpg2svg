@@ -21,7 +21,12 @@ from rich.table import Table
 from raster2svg.cli.convert import _fail
 from raster2svg.cli.help import make_group_help_command
 from raster2svg.config.loader import load_config_file
-from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
+from raster2svg.config.models import (
+    ConversionConfig,
+    OutputConfig,
+    PostprocessConfig,
+    PreprocessConfig,
+)
 from raster2svg.config.presets import (
     PRESET_NOTE,
     PRESETS,
@@ -78,7 +83,7 @@ def preset_list_command() -> None:
 def preset_show_command(
     name: Annotated[str, typer.Argument(help="Preset name, e.g. bw, clip-art, my-logo.")],
 ) -> None:
-    """Show one preset: metadata plus its resolved conversion/preprocess values."""
+    """Show one preset: metadata plus its resolved conversion/preprocess/postprocess values."""
     try:
         preset = resolve_preset(name)
         source = preset_source(name)
@@ -102,6 +107,7 @@ def preset_show_command(
 
     _print_section("conversion", preset.conversion)
     _print_section("preprocess", preset.preprocess)
+    _print_section("postprocess", preset.postprocess)
     console.print(PRESET_NOTE)
 
 
@@ -124,7 +130,7 @@ def preset_save_command(
         typer.Option(
             "--from-config",
             help="Existing TOML/JSON config file to build the preset from "
-            "(its [conversion] and [preprocess] sections).",
+            "(its [conversion], [preprocess], and [postprocess] sections).",
         ),
     ],
     base: Annotated[
@@ -146,9 +152,16 @@ def preset_save_command(
         for key, value in dict(data.get("preprocess") or {}).items()
         if value is not None
     }
+    postprocess = {
+        key: value
+        for key, value in dict(data.get("postprocess") or {}).items()
+        if value is not None
+    }
     values: dict[str, Any] = {"conversion": conversion}
     if preprocess:
         values["preprocess"] = preprocess
+    if postprocess:
+        values["postprocess"] = postprocess
     resolved_base = base or file_preset
     if resolved_base is not None:
         values["base"] = resolved_base
@@ -184,9 +197,9 @@ def preset_compare_command(
 ) -> None:
     """Convert one image with each preset and write report.json for comparison.
 
-    Each preset runs its full recipe (preprocessing + conversion); the report
-    records status, duration, output size, and path count per preset so you
-    can tune values quickly.
+    Each preset runs its full recipe (preprocessing + conversion +
+    post-processing); the report records status, duration, output size, and
+    path count per preset so you can tune values quickly.
     """
     if presets is None:
         names = sorted(PRESETS)
@@ -218,6 +231,7 @@ def preset_compare_command(
             "path_count": None,
             "conversion": resolved.conversion,
             "preprocess": resolved.preprocess,
+            "postprocess": resolved.postprocess,
         }
         try:
             result = Converter().convert(
@@ -226,6 +240,7 @@ def preset_compare_command(
                 config=ConversionConfig(preset=name),
                 output=OutputConfig(overwrite=True, validate_svg=False),
                 preprocess=PreprocessConfig.from_dict(resolved.preprocess),
+                postprocess=PostprocessConfig.from_dict(resolved.postprocess),
             )
             entry["status"] = result.status
             entry["duration_ms"] = result.duration_ms

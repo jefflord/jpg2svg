@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from raster2svg._version import __version__
-from raster2svg.config.models import ConversionConfig, PreprocessConfig
+from raster2svg.config.models import ConversionConfig, PostprocessConfig, PreprocessConfig
 from raster2svg.config.presets import available_presets, preset_details, resolve_preset
 from raster2svg.core.capabilities import (
     EngineCapabilities,
@@ -184,6 +184,10 @@ PREPROCESS_FIELDS: list[dict[str, Any]] = [
     {"name": "resize", "label": "Resize to (WxH)", "kind": "resize"},
 ]
 
+POSTPROCESS_FIELDS: list[dict[str, Any]] = [
+    {"name": "invert", "label": "Invert colors (negative)", "kind": "bool", "default": False},
+]
+
 
 def _finalize_fields(
     fields: list[dict[str, Any]], caps: EngineCapabilities
@@ -238,6 +242,7 @@ def build_info_payload(
         "preset_details": preset_details(),
         "conversion_fields": _finalize_fields(CONVERSION_FIELDS, union),
         "preprocess_fields": _finalize_fields(PREPROCESS_FIELDS, union),
+        "postprocess_fields": _finalize_fields(POSTPROCESS_FIELDS, union),
         "sample": {"name": sample_name} if sample_name else None,
     }
 
@@ -378,12 +383,22 @@ class WebHandler(BaseHTTPRequestHandler):
                 preprocess_data = {**preset_base, **preprocess_data}
         preprocess = PreprocessConfig.from_dict(preprocess_data)
 
+        # The preset's [postprocess] section is the base layer; any value the
+        # UI sends explicitly overrides it field by field (same as preprocess).
+        postprocess_data: dict[str, Any] = dict(options.get("postprocess") or {})
+        if preset is not None:
+            preset_post = resolve_preset(str(preset)).postprocess
+            if preset_post:
+                postprocess_data = {**preset_post, **postprocess_data}
+        postprocess = PostprocessConfig.from_dict(postprocess_data)
+
         started = time.perf_counter()
         svg, applied = self.server.context.convert_bytes(
             record.image_bytes,
             record.image_format,
             config=conversion,
             preprocess=preprocess,
+            postprocess=postprocess,
         )
         duration_ms = int((time.perf_counter() - started) * 1000)
         self._send_json(

@@ -47,5 +47,5 @@ def load_user_config() -> dict[str, Any]:
     """
     path = find_user_config_file()
     if path is None:
-        return {"conversion": {}, "preprocess": {}, "output": {}}
+        return {"conversion": {}, "preprocess": {}, "postprocess": {}, "output": {}}
     return load_config_file(path)

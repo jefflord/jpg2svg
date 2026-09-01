@@ -16,7 +16,7 @@ from rich.console import Console
 
 from raster2svg.cli.convert import _fail, _print_resolved_config
 from raster2svg.cli.help import make_group_help_command
-from raster2svg.cli.options import resolve_output, resolve_preprocess
+from raster2svg.cli.options import resolve_output, resolve_postprocess, resolve_preprocess
 from raster2svg.config.loader import load_config_file
 from raster2svg.config.presets import available_presets, resolve_preset
 from raster2svg.config.resolver import resolve_conversion_config
@@ -81,11 +81,11 @@ def config_show_command(
         except Raster2SvgError as exc:
             _fail(exc)
     if file_cfg is None and any(user_cfg.values()):
-        file_cfg = {"conversion": {}, "preprocess": {}, "output": {}}
+        file_cfg = {"conversion": {}, "preprocess": {}, "postprocess": {}, "output": {}}
     if file_cfg is not None:
         file_cfg = {
             section: {**user_cfg[section], **file_cfg[section]}
-            for section in ("conversion", "preprocess", "output")
+            for section in ("conversion", "preprocess", "postprocess", "output")
         }
 
     try:
@@ -105,10 +105,19 @@ def config_show_command(
             preprocess_file_values = {**preset_base, **preprocess_file_values}
     preprocess_cfg = resolve_preprocess(file_values=preprocess_file_values)
 
+    # Same layering for the [postprocess] section (the inverted presets set it).
+    postprocess_file_values = dict((file_cfg or {}).get("postprocess") or {})
+    if resolved.preset is not None:
+        preset_post = resolve_preset(resolved.preset).postprocess
+        if preset_post:
+            postprocess_file_values = {**preset_post, **postprocess_file_values}
+    postprocess_cfg = resolve_postprocess(file_values=postprocess_file_values)
+
     if out_format == "json":
         payload: dict[str, object] = {
             "conversion": resolved.model_dump(mode="json"),
             "preprocess": preprocess_cfg.model_dump(mode="json"),
+            "postprocess": postprocess_cfg.model_dump(mode="json"),
         }
         if file_cfg is not None:
             payload["output"] = (file_cfg or {}).get("output")
@@ -120,7 +129,7 @@ def config_show_command(
         output_values = (file_cfg or {}).get("output")
         if output_values:
             output_cfg = resolve_output(None, None, None, dict(output_values))
-    _print_resolved_config(resolved, output_cfg, preprocess_cfg)
+    _print_resolved_config(resolved, output_cfg, preprocess_cfg, postprocess_cfg)
 
 
 @config_app.command("init")
@@ -219,10 +228,17 @@ _PREPROCESS_DOCS: tuple[tuple[str, str, str], ...] = (
 )
 
 
+# (field, example value, comment) - order matches the PostprocessConfig fields.
+_POSTPROCESS_DOCS: tuple[tuple[str, str, str], ...] = (
+    ("invert", "false", "render a negative: invert fills and add a dark background"),
+)
+
+
 def _render_toml(preset_name: str | None) -> str:
     resolved = resolve_preset(preset_name) if preset_name else None
     conversion_values = resolved.conversion if resolved is not None else {}
     preprocess_values = resolved.preprocess if resolved is not None else {}
+    postprocess_values = resolved.postprocess if resolved is not None else {}
     preset_note = f" --preset {preset_name}" if preset_name else ""
     lines: list[str] = [
         "# raster2svg configuration file",
@@ -250,6 +266,13 @@ def _render_toml(preset_name: str | None) -> str:
     for field, example, doc in _PREPROCESS_DOCS:
         if field in preprocess_values:
             lines.append(f"{field} = {_toml_value(preprocess_values[field])}")
+        else:
+            lines.append(f"# {field} = {example}  # {doc}")
+
+    lines += ["", "[postprocess]"]
+    for field, example, doc in _POSTPROCESS_DOCS:
+        if field in postprocess_values:
+            lines.append(f"{field} = {_toml_value(postprocess_values[field])}")
         else:
             lines.append(f"# {field} = {example}  # {doc}")
 

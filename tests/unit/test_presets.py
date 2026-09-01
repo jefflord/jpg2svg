@@ -32,7 +32,9 @@ BUILTIN_NAMES = {
     "clip-art-strong",
     "comic",
     "line-art",
+    "line-art-inverted",
     "silhouette",
+    "silhouette-inverted",
     "logo-cleanup",
     "pixel-art",
 }
@@ -109,6 +111,57 @@ def test_save_structured_preset_with_preprocess() -> None:
     assert preset.conversion == {"mode": "spline", "filter_speckle": 3}
     assert preset.preprocess == {"denoise": True, "posterize": 5}
     assert preset.description == "My clip art"
+
+
+def test_inverted_presets_resolve_invert_and_inherit_base() -> None:
+    for inverted, base in (
+        ("line-art-inverted", "line-art"),
+        ("silhouette-inverted", "silhouette"),
+    ):
+        preset = resolve_preset(inverted)
+        # The whole point of the preset: it flips the output.
+        assert preset.postprocess == {"invert": True}
+        # Everything else is inherited from the base preset it derives from.
+        assert preset.conversion == resolve_preset(base).conversion
+        assert preset.preprocess == resolve_preset(base).preprocess
+        assert preset.description
+        assert preset.recommended_for
+
+
+def test_save_structured_preset_with_postprocess() -> None:
+    path = save_custom_preset(
+        "my-invert",
+        {
+            "description": "Negative output",
+            "conversion": {"mode": "spline"},
+            "postprocess": {"invert": True},
+        },
+    )
+    text = path.read_text(encoding="utf-8")
+    assert "[conversion]" in text
+    assert "[postprocess]" in text
+    assert "invert = true" in text
+
+    preset = resolve_preset("my-invert")
+    assert preset.conversion == {"mode": "spline"}
+    assert preset.preprocess == {}
+    assert preset.postprocess == {"invert": True}
+    assert preset.description == "Negative output"
+
+
+def test_custom_preset_postprocess_override_wins_over_base() -> None:
+    # line-art-inverted flips the output; a derived preset may turn it back off.
+    save_custom_preset(
+        "line-art-normal",
+        {
+            "base": "line-art-inverted",
+            "postprocess": {"invert": False},
+        },
+    )
+    preset = resolve_preset("line-art-normal")
+    assert preset.postprocess == {"invert": False}
+    # The base's conversion values are still inherited:
+    assert preset.conversion == resolve_preset("line-art").conversion
 
 
 def test_custom_preset_base_chain() -> None:
@@ -202,6 +255,12 @@ def test_save_rejects_invalid_preprocess_values() -> None:
     with pytest.raises(ConfigError, match="invalid preprocess setting") as exc:
         save_custom_preset("bad-pre", {"preprocess": {"posterize": 32}})
     assert "posterize" in (exc.value.hint or "")
+
+
+def test_save_rejects_invalid_postprocess_values() -> None:
+    with pytest.raises(ConfigError, match="invalid postprocess setting") as exc:
+        save_custom_preset("bad-post", {"postprocess": {"invert": "not-a-bool"}})
+    assert "invert" in (exc.value.hint or "")
 
 
 def test_save_rejects_mixed_flat_and_section_values() -> None:

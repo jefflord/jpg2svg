@@ -31,6 +31,7 @@ from raster2svg.cli.options import (
     FilterSpeckleOption,
     GrayscaleOption,
     HierarchicalOption,
+    InvertOption,
     LayerDifferenceOption,
     LengthThresholdOption,
     MaxColorsOption,
@@ -187,6 +188,7 @@ def batch_command(
     brightness: BrightnessOption = None,
     sharpen: SharpenOption = None,
     pre_max_colors: PreMaxColorsOption = None,
+    invert: InvertOption = None,
     overwrite: OverwriteOption = None,
     no_mkdir: NoMkdirOption = None,
     validate_svg: ValidateSvgOption = None,
@@ -257,10 +259,12 @@ def batch_command(
         "pre_max_colors": pre_max_colors,
     }
 
+    postprocess_kwargs = {"invert": invert}
+
     try:
         worker_count = resolve_jobs(jobs, len(paths))
         entries = build_entries(input_dir, paths, target_dir)
-        config, output_cfg, preprocess_cfg = resolve_cli_options(
+        config, output_cfg, preprocess_cfg, postprocess_cfg = resolve_cli_options(
             preset=preset,
             config_path=config_path,
             cli_values=cli_values,
@@ -268,12 +272,13 @@ def batch_command(
             validate_svg=validate_svg,
             no_mkdir=no_mkdir,
             preprocess_kwargs=preprocess_kwargs,
+            postprocess_kwargs=postprocess_kwargs,
         )
     except Raster2SvgError as exc:
         _fail(exc)
 
     if show_config:
-        _print_resolved_config(config, output_cfg, preprocess_cfg)
+        _print_resolved_config(config, output_cfg, preprocess_cfg, postprocess_cfg)
         raise typer.Exit(0)
 
     stream: list[ConversionResult] = []
@@ -294,6 +299,7 @@ def batch_command(
                 config=config,
                 output=output_cfg,
                 preprocess=preprocess_cfg,
+                postprocess=postprocess_cfg,
                 jobs=worker_count,
                 fail_fast=fail_fast,
                 dry_run=dry_run,
@@ -306,6 +312,7 @@ def batch_command(
             config=config,
             output=output_cfg,
             preprocess=preprocess_cfg,
+            postprocess=postprocess_cfg,
             jobs=worker_count,
             fail_fast=fail_fast,
             dry_run=dry_run,

@@ -8,7 +8,7 @@ Two document shapes are accepted:
 
 * sectioned (recommended) - matches the ``AppConfig`` schema::
 
-    { "conversion": {...}, "preprocess": {...}, "output": {...} }
+    { "conversion": {...}, "preprocess": {...}, "postprocess": {...}, "output": {...} }
 
 * flat - every top-level key is a conversion value (convenient for small files).
 
@@ -25,15 +25,15 @@ from typing import Any
 
 from raster2svg.core.errors import ConfigError
 
-KNOWN_SECTIONS = ("conversion", "preprocess", "output")
+KNOWN_SECTIONS = ("conversion", "preprocess", "postprocess", "output")
 
 
 def load_config_file(path: Path) -> dict[str, Any]:
     """Load a TOML or JSON config file.
 
-    Returns a normalized dict with ``conversion``, ``preprocess`` and
-    ``output`` keys, each a dict (possibly empty), suitable for ``AppConfig``
-    and the resolver.
+    Returns a normalized dict with ``conversion``, ``preprocess``,
+    ``postprocess`` and ``output`` keys, each a dict (possibly empty),
+    suitable for ``AppConfig`` and the resolver.
     """
     if not path.is_file():
         raise ConfigError(f"Config file not found: {path}", hint="Check the --config path.")
@@ -73,11 +73,11 @@ def load_config_file(path: Path) -> dict[str, Any]:
 def _normalize(data: dict[str, Any], name: str) -> dict[str, Any]:
     sections = set(data)
     if not sections:
-        return {"conversion": {}, "preprocess": {}, "output": {}}
+        return {"conversion": {}, "preprocess": {}, "postprocess": {}, "output": {}}
 
     if not sections.intersection(KNOWN_SECTIONS):
         # Flat shape: everything is a conversion value.
-        return {"conversion": dict(data), "preprocess": {}, "output": {}}
+        return {"conversion": dict(data), "preprocess": {}, "postprocess": {}, "output": {}}
 
     unknown = sections.difference(KNOWN_SECTIONS)
     if unknown:
@@ -100,6 +100,12 @@ def _normalize(data: dict[str, Any], name: str) -> dict[str, Any]:
             f"The preprocess section must be a table in {name}.",
             hint=f"Got {type(preprocess).__name__}.",
         )
+    postprocess = data.get("postprocess")
+    if postprocess is not None and not isinstance(postprocess, dict):
+        raise ConfigError(
+            f"The postprocess section must be a table in {name}.",
+            hint=f"Got {type(postprocess).__name__}.",
+        )
     output = data.get("output")
     if output is not None and not isinstance(output, dict):
         raise ConfigError(
@@ -109,5 +115,6 @@ def _normalize(data: dict[str, Any], name: str) -> dict[str, Any]:
     return {
         "conversion": conversion or {},
         "preprocess": preprocess or {},
+        "postprocess": postprocess or {},
         "output": output or {},
     }

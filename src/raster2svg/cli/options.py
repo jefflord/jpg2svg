@@ -13,7 +13,12 @@ from typing import Annotated, Any
 import typer
 
 from raster2svg.config.loader import load_config_file
-from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
+from raster2svg.config.models import (
+    ConversionConfig,
+    OutputConfig,
+    PostprocessConfig,
+    PreprocessConfig,
+)
 from raster2svg.config.presets import resolve_preset
 from raster2svg.config.resolver import resolve_conversion_config
 from raster2svg.config.user_config import load_user_config
@@ -293,6 +298,14 @@ PreMaxColorsOption = Annotated[
     ),
 ]
 
+InvertOption = Annotated[
+    bool | None,
+    typer.Option(
+        "--invert/--no-invert",
+        help="Render the SVG as a negative: light strokes on a dark background.",
+    ),
+]
+
 OverwriteOption = Annotated[
     bool | None,
     typer.Option(
@@ -452,6 +465,25 @@ def resolve_preprocess(
     return PreprocessConfig.from_dict(data)
 
 
+def resolve_postprocess(
+    *,
+    invert: bool | None = None,
+    file_values: dict[str, Any] | None = None,
+) -> PostprocessConfig:
+    """Resolve post-processing: CLI flag > config file [postprocess] > default."""
+    file_values = file_values or {}
+
+    def pick(cli_value: Any, key: str, default: Any) -> Any:
+        if cli_value is not None:
+            return cli_value
+        return file_values.get(key, default)
+
+    data = {
+        "invert": bool(pick(invert, "invert", False)),
+    }
+    return PostprocessConfig.from_dict(data)
+
+
 def resolve_cli_options(
     *,
     preset: str | None,
@@ -461,13 +493,19 @@ def resolve_cli_options(
     validate_svg: bool | None,
     no_mkdir: bool | None,
     preprocess_kwargs: dict[str, Any] | None = None,
-) -> tuple[ConversionConfig, OutputConfig, PreprocessConfig]:
+    postprocess_kwargs: dict[str, Any] | None = None,
+) -> tuple[ConversionConfig, OutputConfig, PreprocessConfig, PostprocessConfig]:
     """Apply PRD section 8 precedence for one CLI invocation.
 
     Raises Raster2SvgError subclasses (ConfigError, UnknownPresetError, ...)
     for invalid input.
     """
-    file_cfg: dict[str, Any] = {"conversion": {}, "preprocess": {}, "output": {}}
+    file_cfg: dict[str, Any] = {
+        "conversion": {},
+        "preprocess": {},
+        "postprocess": {},
+        "output": {},
+    }
     if config_path is not None:
         file_cfg = load_config_file(config_path)
 
@@ -477,7 +515,7 @@ def resolve_cli_options(
     user_cfg = load_user_config()
     file_cfg = {
         section: {**user_cfg[section], **file_cfg[section]}
-        for section in ("conversion", "preprocess", "output")
+        for section in ("conversion", "preprocess", "postprocess", "output")
     }
 
     config = resolve_conversion_config(
@@ -499,4 +537,17 @@ def resolve_cli_options(
         **(preprocess_kwargs or {}),
         file_values=file_values,
     )
-    return config, output_cfg, preprocess_cfg
+
+    # PRD 8: the preset's [postprocess] section sits below the config file's
+    # [postprocess] (which itself sits below CLI flags), exactly like its
+    # [preprocess] section.
+    postprocess_values = dict(file_cfg.get("postprocess") or {})
+    if config.preset is not None:
+        preset_post = resolve_preset(config.preset).postprocess
+        if preset_post:
+            postprocess_values = {**preset_post, **postprocess_values}
+    postprocess_cfg = resolve_postprocess(
+        **(postprocess_kwargs or {}),
+        file_values=postprocess_values,
+    )
+    return config, output_cfg, preprocess_cfg, postprocess_cfg

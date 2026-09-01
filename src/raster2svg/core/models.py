@@ -31,4 +31,6 @@ class ConversionResult:
     input_height: int | None = None
     preprocess: dict[str, Any] = field(default_factory=dict)
     preprocess_applied: list[str] = field(default_factory=list)
+    postprocess: dict[str, Any] = field(default_factory=dict)
+    postprocess_applied: list[str] = field(default_factory=list)
     error: str | None = None

@@ -1,11 +1,13 @@
 """Built-in and custom presets (PRD section 16).
 
-A preset is a named bundle of initial values with two sections plus optional
-display metadata:
+A preset is a named bundle of initial values with three sections plus
+optional display metadata:
 
 * ``conversion``  -- tracing options, validated against ``ConversionConfig``
 * ``preprocess``  -- Pillow preprocessing options, validated against
   ``PreprocessConfig``
+* ``postprocess`` -- SVG output options (e.g. invert), validated against
+  ``PostprocessConfig``
 * metadata        -- ``description``, ``recommended_for``, ``notes``
 
 A preset only sets initial values: config-file values and CLI options always
@@ -50,7 +52,7 @@ from typing import Any
 
 import platformdirs
 
-from raster2svg.config.models import ConversionConfig, PreprocessConfig
+from raster2svg.config.models import ConversionConfig, PostprocessConfig, PreprocessConfig
 from raster2svg.core.errors import ConfigError
 
 PRESET_NOTE = (
@@ -59,7 +61,7 @@ PRESET_NOTE = (
 )
 
 _META_KEYS = {"base", "description", "recommended_for", "notes"}
-_SECTION_KEYS = {"conversion", "preprocess"}
+_SECTION_KEYS = {"conversion", "preprocess", "postprocess"}
 
 
 @dataclass(frozen=True)
@@ -78,6 +80,7 @@ class Preset:
     notes: str | None
     conversion: dict[str, Any]
     preprocess: dict[str, Any]
+    postprocess: dict[str, Any]
 
 
 # Built-in presets (PRD 16.1 requires bw/photo/poster; the rest extend the
@@ -267,6 +270,12 @@ PRESETS: dict[str, dict[str, Any]] = {
         },
         "preprocess": {"grayscale": True, "denoise": True, "blur": True},
     },
+    "line-art-inverted": {
+        "description": "Negative line art: white strokes on a dark background.",
+        "recommended_for": ["line art on dark", "neon and signage", "reversed ink sketches"],
+        "base": "line-art",
+        "postprocess": {"invert": True},
+    },
     "silhouette": {
         "description": "Solid single-color silhouettes: the image becomes one flat shape.",
         "recommended_for": ["silhouettes", "stencils", "shadow shapes"],
@@ -281,6 +290,12 @@ PRESETS: dict[str, dict[str, Any]] = {
             "path_precision": 2,
         },
         "preprocess": {"grayscale": True, "denoise": True, "blur": True, "autocontrast": True},
+    },
+    "silhouette-inverted": {
+        "description": "Negative silhouette: a solid light shape on a dark background.",
+        "recommended_for": ["stencils on dark", "reversed shadow shapes"],
+        "base": "silhouette",
+        "postprocess": {"invert": True},
     },
     "logo-cleanup": {
         "description": "Logos and badges: precise curves, clean edges, small faithful palette.",
@@ -424,9 +439,11 @@ def resolve_preset(name: str) -> Preset:
 
     conversion: dict[str, Any] = {}
     preprocess: dict[str, Any] = {}
+    postprocess: dict[str, Any] = {}
     for preset in reversed(chain):  # base first, derived last -> derived wins
         conversion.update(preset.conversion)
         preprocess.update(preset.preprocess)
+        postprocess.update(preset.postprocess)
 
     description = next(
         (preset.description for preset in chain if preset.description), None
@@ -445,6 +462,7 @@ def resolve_preset(name: str) -> Preset:
         notes=notes,
         conversion=conversion,
         preprocess=preprocess,
+        postprocess=postprocess,
     )
 
 
@@ -464,7 +482,7 @@ def preset_details() -> dict[str, dict[str, Any]]:
 
 def _make_preset(name: str, source: str, raw: dict[str, Any]) -> Preset:
     validate_preset_values(name, raw)
-    conversion, preprocess = _split_sections(name, raw)
+    conversion, preprocess, postprocess = _split_sections(name, raw)
     return Preset(
         name=name,
         source=source,
@@ -474,39 +492,49 @@ def _make_preset(name: str, source: str, raw: dict[str, Any]) -> Preset:
         notes=raw.get("notes") if isinstance(raw.get("notes"), str) else None,
         conversion=conversion,
         preprocess=preprocess,
+        postprocess=postprocess,
     )
 
 
 def _split_sections(
     name: str, values: dict[str, Any]
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Split raw preset values into (conversion, preprocess) sections.
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Split raw preset values into (conversion, preprocess, postprocess).
 
-    Structured files carry ``conversion``/``preprocess`` keys; legacy flat
-    files (and conversion-only presets) put conversion values at the top
-    level, where any metadata keys are excluded.
+    Structured files carry ``conversion``/``preprocess``/``postprocess``
+    keys; legacy flat files (and conversion-only presets) put conversion
+    values at the top level, where any metadata keys are excluded.
     """
-    if "conversion" in values or "preprocess" in values:
+    if "conversion" in values or "preprocess" in values or "postprocess" in values:
         unexpected = set(values) - _META_KEYS - _SECTION_KEYS
         if unexpected:
             raise ConfigError(
                 f"Preset {name!r} mixes sectioned and flat values.",
                 hint=(
-                    f"Move {', '.join(sorted(unexpected))} into the [conversion] or "
-                    "[preprocess] section when using 'conversion'/'preprocess' keys."
+                    f"Move {', '.join(sorted(unexpected))} into the [conversion], "
+                    "[preprocess], or [postprocess] section when using sectioned keys."
                 ),
             )
         conversion = values.get("conversion") or {}
         preprocess = values.get("preprocess") or {}
+        postprocess = values.get("postprocess") or {}
     else:
         conversion = {key: value for key, value in values.items() if key not in _META_KEYS}
         preprocess = {}
-    if not isinstance(conversion, dict) or not isinstance(preprocess, dict):
+        postprocess = {}
+    if (
+        not isinstance(conversion, dict)
+        or not isinstance(preprocess, dict)
+        or not isinstance(postprocess, dict)
+    ):
         raise ConfigError(
             f"Preset {name!r} sections must be tables of settings.",
-            hint="'conversion' and 'preprocess' values must be tables/objects.",
+            hint=(
+                "'conversion', 'preprocess', and 'postprocess' values must be "
+                "tables/objects."
+            ),
         )
-    return dict(conversion), dict(preprocess)
+    return dict(conversion), dict(preprocess), dict(postprocess)
 
 
 def validate_preset_values(name: str, values: dict[str, Any]) -> None:
@@ -515,9 +543,10 @@ def validate_preset_values(name: str, values: dict[str, Any]) -> None:
     Raises ConfigError listing every offending field so users can fix the
     preset in one pass.
     """
-    conversion, preprocess = _split_sections(name, values)
+    conversion, preprocess, postprocess = _split_sections(name, values)
     _validate_section(name, "conversion", conversion, ConversionConfig)
     _validate_section(name, "preprocess", preprocess, PreprocessConfig)
+    _validate_section(name, "postprocess", postprocess, PostprocessConfig)
 
 
 def _validate_section(
@@ -561,10 +590,11 @@ def save_custom_preset(name: str, values: dict[str, Any]) -> Path:
         raise ConfigError(f"Preset {name!r} has no values to save.")
 
     validate_preset_values(name, values)
-    conversion, preprocess = _split_sections(name, values)
+    conversion, preprocess, postprocess = _split_sections(name, values)
     if (
         not conversion
         and not preprocess
+        and not postprocess
         and CUSTOM_BASE_KEY not in values
         and not (values.get("description") or values.get("notes") or values.get("recommended_for"))
     ):
@@ -595,7 +625,7 @@ def render_preset_toml(name: str, values: dict[str, Any]) -> str:
     if lines[-1] != "":
         lines.append("")
 
-    conversion, preprocess = _split_sections(name, values)
+    conversion, preprocess, postprocess = _split_sections(name, values)
     if conversion:
         lines.append("[conversion]")
         for key, value in conversion.items():
@@ -604,6 +634,11 @@ def render_preset_toml(name: str, values: dict[str, Any]) -> str:
     if preprocess:
         lines.append("[preprocess]")
         for key, value in preprocess.items():
+            lines.append(f"{key} = {_toml_value(value)}")
+        lines.append("")
+    if postprocess:
+        lines.append("[postprocess]")
+        for key, value in postprocess.items():
             lines.append(f"{key} = {_toml_value(value)}")
         lines.append("")
     while lines and lines[-1] == "":

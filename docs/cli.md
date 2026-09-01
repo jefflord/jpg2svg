@@ -64,18 +64,20 @@ Input and output are accepted positionally or via `--input` / `--output`
 (named flag wins when both are given). The main conversion options are the
 `[conversion]` settings from [configuration.md](configuration.md#conversion-settings)
 as flags (e.g. `--clustering`, `--mode`, `--layer-difference`, `--simplify`),
-the `[preprocess]` settings (e.g. `--resize`, `--grayscale`, `--denoise`, `--blur`, `--posterize`, `--autocontrast`), and
+the `[preprocess]` settings (e.g. `--resize`, `--grayscale`, `--denoise`, `--blur`, `--posterize`, `--autocontrast`),
+the `[postprocess]` settings (currently just `--invert` / `--no-invert`), and
 the `[output]` settings (`--overwrite`, `--validate-svg`, `--no-mkdir`).
 
 Useful flags:
 
 | Flag | Effect |
 | --- | --- |
-| `--preset NAME` | Starting preset (one of the 12 built-ins such as `bw`, `photo`, `poster`, `clip-art`, or a saved custom preset). |
+| `--preset NAME` | Starting preset (one of the 14 built-ins such as `bw`, `photo`, `poster`, `clip-art`, `line-art-inverted`, or a saved custom preset). |
 | `--config PATH` | Config file (`.toml`/`.json`) for conversion + output settings. |
 | `--show-config` | Print the resolved configuration and exit (no conversion). |
 | `--dry-run` | Validate everything but do not write output. |
 | `--report PATH` | Write a JSON conversion report to this path. |
+| `--invert` / `--no-invert` | Render a negative (light-on-dark) result: invert hex fills, force unfilled shapes white, and add a dark background. (default: off) |
 | `--overwrite` / `--no-overwrite` | Replace an existing output file (default: refuse). |
 
 ### `batch`
@@ -95,8 +97,9 @@ raster2svg batch [OPTIONS] INPUT_DIR
 | `--jsonl` | Emit one JSON object per result on stdout. |
 | `--report PATH` | Write a JSON batch report to this path. |
 
-All `convert` conversion/preprocess/output flags apply to every file in the
-batch. Per-file failures are captured, not raised: the batch continues (unless
+All `convert` conversion/preprocess/postprocess/output flags apply to every
+file in the batch. Per-file failures are captured, not raised: the batch
+continues (unless
 `--fail-fast` is set) and records each result. The command exits with code
 **1** if any file failed or was skipped, and **0** if all succeeded.
 

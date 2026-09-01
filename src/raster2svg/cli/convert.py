@@ -33,6 +33,7 @@ from raster2svg.cli.options import (
     FilterSpeckleOption,
     GrayscaleOption,
     HierarchicalOption,
+    InvertOption,
     LayerDifferenceOption,
     LengthThresholdOption,
     MaxColorsOption,
@@ -60,7 +61,12 @@ from raster2svg.cli.options import (
     build_cli_values,
     resolve_cli_options,
 )
-from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
+from raster2svg.config.models import (
+    ConversionConfig,
+    OutputConfig,
+    PostprocessConfig,
+    PreprocessConfig,
+)
 from raster2svg.core.errors import ConfigError, Raster2SvgError
 from raster2svg.core.models import STATUS_DRY_RUN
 from raster2svg.output.reports import write_report
@@ -81,6 +87,7 @@ def _print_resolved_config(
     config: ConversionConfig,
     output: OutputConfig | None = None,
     preprocess: PreprocessConfig | None = None,
+    postprocess: PostprocessConfig | None = None,
 ) -> None:
     data = config.model_dump(mode="json")
     table = Table(title="Resolved configuration")
@@ -100,6 +107,14 @@ def _print_resolved_config(
         for key, value in preprocess.model_dump().items():
             pre_table.add_row(key, str(value))
         console.print(pre_table)
+
+    if postprocess is not None:
+        post_table = Table(title="Resolved post-processing")
+        post_table.add_column("setting")
+        post_table.add_column("value")
+        for key, value in postprocess.model_dump().items():
+            post_table.add_row(key, str(value))
+        console.print(post_table)
 
     if output is not None:
         out_table = Table(title="Resolved output settings")
@@ -164,6 +179,7 @@ def convert_command(
     brightness: BrightnessOption = None,
     sharpen: SharpenOption = None,
     pre_max_colors: PreMaxColorsOption = None,
+    invert: InvertOption = None,
     overwrite: OverwriteOption = None,
     no_mkdir: NoMkdirOption = None,
     validate_svg: ValidateSvgOption = None,
@@ -228,8 +244,10 @@ def convert_command(
         "pre_max_colors": pre_max_colors,
     }
 
+    postprocess_kwargs = {"invert": invert}
+
     try:
-        config, output_cfg, preprocess_cfg = resolve_cli_options(
+        config, output_cfg, preprocess_cfg, postprocess_cfg = resolve_cli_options(
             preset=preset,
             config_path=config_path,
             cli_values=cli_values,
@@ -237,12 +255,13 @@ def convert_command(
             validate_svg=validate_svg,
             no_mkdir=no_mkdir,
             preprocess_kwargs=preprocess_kwargs,
+            postprocess_kwargs=postprocess_kwargs,
         )
     except Raster2SvgError as exc:
         _fail(exc)
 
     if show_config:
-        _print_resolved_config(config, output_cfg, preprocess_cfg)
+        _print_resolved_config(config, output_cfg, preprocess_cfg, postprocess_cfg)
         raise typer.Exit(0)
 
     converter = Converter()
@@ -253,6 +272,7 @@ def convert_command(
             config=config,
             output=output_cfg,
             preprocess=preprocess_cfg,
+            postprocess=postprocess_cfg,
             dry_run=dry_run,
         )
     except Raster2SvgError as exc:

@@ -21,7 +21,7 @@ engine defaults  <  preset  <  user config  <  --config file  <  CLI options
 ## Config file format
 
 Config files are TOML (`.toml`) or JSON (`.json`), detected by extension. They
-use three optional sections:
+use four optional sections:
 
 ```toml
 [conversion]
@@ -29,6 +29,9 @@ use three optional sections:
 
 [preprocess]
 # image preprocessing (resize, grayscale, ...)
+
+[postprocess]
+# SVG post-trace options (invert, ...)
 
 [output]
 # output behavior (overwrite, validate_svg, ...)
@@ -121,6 +124,19 @@ Applied before tracing. Identity / omitted values leave that aspect untouched.
 | `brightness` | float | — | Brightness factor, 1.0 = unchanged, range 0-10. |
 | `sharpen` | bool | `false` | Conservative unsharp mask. |
 | `pre_max_colors` | int | — | Cap the raster to at most N colors (1-256) before tracing; no dithering (flat regions). Preprocessor-side — distinct from the engine `max_colors` (needs VTracer 1.0). |
+
+## Postprocessing settings
+
+Applied after tracing, to the generated SVG text. Identity / omitted values leave
+the SVG untouched.
+
+| Key | Type | Default | Notes |
+| --- | --- | --- | --- |
+| `invert` | bool | `false` | Render a negative: invert hex fills, force unfilled shapes white, and insert a dark background rect (light-on-dark). CLI `--invert` / `--no-invert`. |
+
+The two built-in inverted presets (`line-art-inverted`, `silhouette-inverted`)
+are simply their base preset plus `invert = true`, so they trace exactly the
+same and only differ in this post-processing step.
 
 ## Output settings
 

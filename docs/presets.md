@@ -1,15 +1,17 @@
 # Presets
 
-A preset is a named bundle of starting values with two sections plus optional
-display metadata:
+A preset is a named bundle of starting values with up to three sections plus
+optional display metadata:
 
 - **`[conversion]`** — tracing options, validated against `ConversionConfig`
 - **`[preprocess]`** — Pillow preprocessing options, validated against
   `PreprocessConfig`
+- **`[postprocess]`** — SVG post-trace options, validated against
+  `PostprocessConfig` (currently just `invert`, the negative look)
 - **metadata** — `description`, `recommended_for`, `notes`
 
 A preset sets **initial values only** — any config-file value or CLI option
-always overrides it, for both sections (see
+always overrides it, for every section (see
 [configuration.md](configuration.md) for the full precedence chain).
 
 ```
@@ -18,7 +20,7 @@ engine defaults  <  preset  <  user config  <  --config file  <  CLI options
 
 ## Built-in presets
 
-`raster2svg` ships twelve built-in presets (PRD 16.1 requires `bw`, `photo`,
+`raster2svg` ships fourteen built-in presets (PRD 16.1 requires `bw`, `photo`,
 and `poster`; the rest extend the set):
 
 | Preset | Description | Best for |
@@ -32,14 +34,18 @@ and `poster`; the rest extend the set):
 | `clip-art-strong` | Aggressive clip-art cleanup: very few colors, thick clean shapes. | noisy scans, low-res clip art, stamps |
 | `comic` | Comic and manga style: crisp shapes, flat cel color, high contrast. | comics, manga, cel shading |
 | `line-art` | Ink line drawings: adaptive thresholding keeps strokes under uneven light. | line art, ink drawings, sketches |
+| `line-art-inverted` | `line-art` rendered as a negative: light strokes on a dark background. | glowing line art, dark-mode icons, night-sky sketches |
 | `silhouette` | Solid single-color silhouettes: the image becomes one flat shape. | silhouettes, stencils, shadow shapes |
+| `silhouette-inverted` | `silhouette` rendered as a negative: a light shape on a dark background. | glowing silhouettes, dark-mode badges, light-on-dark stencils |
 | `logo-cleanup` | Logos and badges: precise curves, clean edges, small faithful palette. | logos, badges, emblems |
 | `pixel-art` | Pixel art and retro sprites: hard edges, no smoothing, one shape per block. | pixel art, retro games, sprites |
 
 Every preset bundles a `[preprocess]` section (e.g. `photo` applies `denoise`,
 `poster` applies `denoise` + `posterize` + `autocontrast` + `pre_max_colors`)
 plus `[conversion]` values (clustering, layering, curve mode, precision,
-speckle filtering, simplification, optimization). Inspect any preset with:
+speckle filtering, simplification, optimization). The two inverted presets
+additionally set `[postprocess]` `invert = true` (see
+[configuration.md](configuration.md)). Inspect any preset with:
 
 ```powershell
 raster2svg preset show clip-art
@@ -99,6 +105,10 @@ filter_speckle = 3
 [preprocess]
 denoise = true
 posterize = 5
+
+# Optional — e.g. a negative (light-on-dark) output:
+[postprocess]
+invert = true
 ```
 
 ```toml
@@ -111,9 +121,10 @@ Rules for a custom preset:
 
 - Name: lowercase letters, digits, and dashes (e.g. `my-logo`).
 - Must not shadow a built-in name (`bw`, `photo`, `poster`, …).
-- May contain `[conversion]` and/or `[preprocess]` settings, plus the
-  optional `base` key and metadata (`description`, `recommended_for`,
-  `notes`). Mixing sectioned and flat values in one file is rejected.
+- May contain `[conversion]`, `[preprocess]`, and/or `[postprocess]`
+  settings, plus the optional `base` key and metadata (`description`,
+  `recommended_for`, `notes`). Mixing sectioned and flat values in one file
+  is rejected.
 - Values are validated against the canonical models before saving, so a saved
   preset can never be silently ignored (PRD 21).
 
@@ -157,5 +168,6 @@ raster2svg preset compare corpus\clip-art.png
 - A preset selects *which* engine settings are pre-filled; it does not change
   validation or the precedence rules.
 - In the web UI, selecting a preset shows its description and recommended
-  inputs, and the preset's `[preprocess]` values merge under any
-  preprocessing you set explicitly.
+  inputs, and the preset's `[preprocess]` and `[postprocess]` values merge
+  under any values you set explicitly (e.g. the inverted presets come in with
+  invert already on).

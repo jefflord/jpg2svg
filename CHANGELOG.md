@@ -9,25 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Presets: twelve built-in presets — `bw`, `photo`, `poster`,
+- Presets: fourteen built-in presets — `bw`, `photo`, `poster`,
   `flat-illustration`, `clip-art`, `clip-art-soft`, `clip-art-strong`, `comic`,
-  `line-art`, `silhouette`, `logo-cleanup`, `pixel-art`. Each bundles
-  `[conversion]` and `[preprocess]` starting values plus `description` /
-  `recommended_for` metadata. `preset list` shows description and recommended
-  inputs; `preset show NAME` prints metadata and the fully resolved values of
-  both sections.
+  `line-art`, `line-art-inverted`, `silhouette`, `silhouette-inverted`,
+  `logo-cleanup`, `pixel-art`. Each bundles `[conversion]`, `[preprocess]`,
+  and (for the inverted pair) `[postprocess]` starting values plus
+  `description` / `recommended_for` metadata. `preset list` shows description
+  and recommended inputs; `preset show NAME` prints metadata and the fully
+  resolved values of every section.
 - `preset compare IMAGE`: convert one image with every preset (or a
   `--presets` subset) and write one SVG plus a `report.json` (status, duration,
   output size, path count) per preset, for quick visual tuning.
 - New preprocessing options (Pillow, no new dependencies): `--blur` /
   `--no-blur` (gentle Gaussian blur), `--posterize N` (1-8 bits per channel),
   `--autocontrast` / `--no-autocontrast`.
+- New post-processing stage (no new dependencies): `--invert` / `--no-invert`
+  renders a negative (light-on-dark) SVG after tracing — hex fills are
+  inverted, unfilled shapes are forced white, and a dark background rect is
+  inserted. Settable as `invert` under a `[postprocess]` config section; the
+  `postprocess` / `postprocess_applied` fields are reported in the conversion
+  report.
+- Negative presets: `line-art-inverted` and `silhouette-inverted`, each the
+  base preset plus `invert = true`, so they trace identically and only differ
+  in the final post-processing step.
 - Custom presets may now be saved in structured form (`[conversion]` +
   `[preprocess]` + optional `base` and metadata) from a config file; the
   legacy flat shape (top-level conversion values) still loads and saves.
 - Web UI: selecting a preset shows its description and recommended inputs;
-  the preset's `[preprocess]` values merge under any explicitly set
-  preprocessing options.
+  the preset's `[preprocess]` and `[postprocess]` values merge under any
+  explicitly set preprocessing / postprocessing options.
 - `scripts/make_corpus.py`: deterministic Pillow-generated test images (one per
   preset family) for reproducible preset tuning.
 - Web UI: proper preview zoom & pan — scroll anywhere to zoom at the cursor,

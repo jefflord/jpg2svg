@@ -295,3 +295,45 @@ def test_preset_save_rejects_builtin_name(tmp_path: Path, monkeypatch: pytest.Mo
     result = runner.invoke(app, ["preset", "save", "photo", "--from-config", str(source_cfg)])
     assert result.exit_code == 2
     assert "shadow" in result.output
+
+
+def test_config_init_includes_postprocess(tmp_path: Path) -> None:
+    out = tmp_path / "cfg.toml"
+    result = runner.invoke(app, ["config", "init", "--output", str(out), "--force"])
+    assert result.exit_code == 0, result.output
+    text = out.read_text(encoding="utf-8")
+    assert "[postprocess]" in text
+    assert "invert = false" in text
+
+
+def test_config_init_inverted_preset_sets_invert(tmp_path: Path) -> None:
+    out = tmp_path / "cfg.toml"
+    result = runner.invoke(
+        app, ["config", "init", "--output", str(out), "--preset", "line-art-inverted", "--force"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "invert = true" in out.read_text(encoding="utf-8")
+
+
+def test_preset_show_inverted_includes_postprocess() -> None:
+    result = runner.invoke(app, ["preset", "show", "line-art-inverted"])
+    assert result.exit_code == 0, result.output
+    assert "postprocess" in result.output
+    assert "invert" in result.output
+
+
+def test_preset_save_and_show_includes_postprocess(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RASTER2SVG_DATA_DIR", str(tmp_path / "data"))
+    source_cfg = tmp_path / "neg.toml"
+    source_cfg.write_text(
+        '[conversion]\nmode = "pixel"\n\n[postprocess]\ninvert = true\n', encoding="utf-8"
+    )
+    saved = runner.invoke(app, ["preset", "save", "my-negative", "--from-config", str(source_cfg)])
+    assert saved.exit_code == 0, saved.output
+
+    shown = runner.invoke(app, ["preset", "show", "my-negative"])
+    assert shown.exit_code == 0, shown.output
+    assert "postprocess" in shown.output
+    assert "invert" in shown.output

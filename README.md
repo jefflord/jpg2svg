@@ -151,13 +151,28 @@ image.
 The same settings can be placed in a config file under `[preprocess]`; CLI
 flags override file values.
 
+## Postprocessing
+
+Optional SVG post-processing runs after tracing and is always reported in the
+conversion report (`postprocess` / `postprocess_applied`). A default run
+leaves the traced SVG untouched.
+
+| Flag | Effect |
+| --- | --- |
+| `--invert` / `--no-invert` | Render a negative (light-on-dark): invert hex fills, force unfilled shapes white, and add a dark background (default: off) |
+
+The `line-art-inverted` and `silhouette-inverted` presets are just their base
+preset with invert switched on, so they trace identically and only differ in
+this final step.
+
 ## Web interface
 
 `raster2svg web` starts a local HTTP server that hosts a single-page app for
 real-time conversion: upload an image once, tweak the options, watch the SVG
-update live, and download the result. It reuses the same engine, presets, and
-preprocessing as `convert`, so the output matches the CLI exactly. There are no
-new runtime dependencies — the server is stdlib `http.server`.
+update live, and download the result. It reuses the same engine, presets,
+preprocessing, and postprocessing as `convert`, so the output matches the CLI
+exactly. There are no new runtime dependencies — the server is stdlib
+`http.server`.
 
 ```powershell
 raster2svg web                     # http://localhost:9921/ (loopback)
@@ -214,10 +229,11 @@ and what each supports.
 > setups where only the 0.6.x Python engine is installed and `max_colors` is
 > unavailable.
 
-Presets (`bw`, `photo`, `poster`, `clip-art`, `line-art`, `pixel-art`, and
-nine more) are application-level bundles of canonical `[conversion]` and
-`[preprocess]` settings; VTracer exposes no native preset API, so they map onto
-the shared option surface. See [docs/presets.md](docs/presets.md).
+Presets (`bw`, `photo`, `poster`, `clip-art`, `line-art`, `pixel-art`,
+`line-art-inverted`, `silhouette-inverted`, and more — 14 built-ins total) are
+application-level bundles of canonical `[conversion]`, `[preprocess]`, and
+`[postprocess]` settings; VTracer exposes no native preset API, so they map
+onto the shared option surface. See [docs/presets.md](docs/presets.md).
 
 ## Documentation
 

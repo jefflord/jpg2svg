@@ -15,7 +15,12 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 
-from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
+from raster2svg.config.models import (
+    ConversionConfig,
+    OutputConfig,
+    PostprocessConfig,
+    PreprocessConfig,
+)
 from raster2svg.core.errors import ConfigError, InputError, Raster2SvgError
 from raster2svg.core.models import (
     STATUS_FAILED,
@@ -161,6 +166,7 @@ def _convert_one(
     config: ConversionConfig,
     output_cfg: OutputConfig,
     preprocess_cfg: PreprocessConfig,
+    postprocess_cfg: PostprocessConfig,
     dry_run: bool,
 ) -> ConversionResult:
     """Worker entry point (module-level so it can be pickled for spawn)."""
@@ -170,6 +176,7 @@ def _convert_one(
         config=config,
         output=output_cfg,
         preprocess=preprocess_cfg,
+        postprocess=postprocess_cfg,
         dry_run=dry_run,
     )
 
@@ -187,6 +194,7 @@ class BatchConverter:
         config: ConversionConfig | None = None,
         output: OutputConfig | None = None,
         preprocess: PreprocessConfig | None = None,
+        postprocess: PostprocessConfig | None = None,
         jobs: int = 1,
         fail_fast: bool = False,
         dry_run: bool = False,
@@ -197,11 +205,20 @@ class BatchConverter:
         config = config or ConversionConfig()
         output_cfg = output or OutputConfig()
         preprocess_cfg = preprocess or PreprocessConfig()
+        postprocess_cfg = postprocess or PostprocessConfig()
         results: list[ConversionResult | None] = [None] * len(entries)
 
         if jobs <= 1 or len(entries) <= 1:
             self._run_serial(
-                entries, results, config, output_cfg, preprocess_cfg, fail_fast, dry_run, on_result
+                entries,
+                results,
+                config,
+                output_cfg,
+                preprocess_cfg,
+                postprocess_cfg,
+                fail_fast,
+                dry_run,
+                on_result,
             )
         else:
             self._run_parallel(
@@ -210,6 +227,7 @@ class BatchConverter:
                 config,
                 output_cfg,
                 preprocess_cfg,
+                postprocess_cfg,
                 jobs,
                 fail_fast,
                 dry_run,
@@ -230,12 +248,15 @@ class BatchConverter:
         config: ConversionConfig,
         output_cfg: OutputConfig,
         preprocess_cfg: PreprocessConfig,
+        postprocess_cfg: PostprocessConfig,
         fail_fast: bool,
         dry_run: bool,
         on_result: ProgressCallback | None,
     ) -> None:
         for index, entry in enumerate(entries):
-            result = self._convert_catch(entry, config, output_cfg, preprocess_cfg, dry_run)
+            result = self._convert_catch(
+                entry, config, output_cfg, preprocess_cfg, postprocess_cfg, dry_run
+            )
             results[index] = result
             if on_result is not None:
                 on_result(result)
@@ -251,6 +272,7 @@ class BatchConverter:
         config: ConversionConfig,
         output_cfg: OutputConfig,
         preprocess_cfg: PreprocessConfig,
+        postprocess_cfg: PostprocessConfig,
         jobs: int,
         fail_fast: bool,
         dry_run: bool,
@@ -258,10 +280,15 @@ class BatchConverter:
     ) -> None:
         with ProcessPoolExecutor(max_workers=jobs) as pool:
             futures = {
-                pool.submit(_convert_one, entry, config, output_cfg, preprocess_cfg, dry_run): (
-                    index,
+                pool.submit(
+                    _convert_one,
                     entry,
-                )
+                    config,
+                    output_cfg,
+                    preprocess_cfg,
+                    postprocess_cfg,
+                    dry_run,
+                ): (index, entry)
                 for index, entry in enumerate(entries)
             }
             stop = False
@@ -301,6 +328,7 @@ class BatchConverter:
         config: ConversionConfig,
         output_cfg: OutputConfig,
         preprocess_cfg: PreprocessConfig,
+        postprocess_cfg: PostprocessConfig,
         dry_run: bool,
     ) -> ConversionResult:
         try:
@@ -310,6 +338,7 @@ class BatchConverter:
                 config=config,
                 output=output_cfg,
                 preprocess=preprocess_cfg,
+                postprocess=postprocess_cfg,
                 dry_run=dry_run,
             )
         except Raster2SvgError as exc:

@@ -17,7 +17,12 @@ from typing import Any
 from PIL import Image, UnidentifiedImageError
 
 from raster2svg._version import __version__
-from raster2svg.config.models import ConversionConfig, OutputConfig, PreprocessConfig
+from raster2svg.config.models import (
+    ConversionConfig,
+    OutputConfig,
+    PostprocessConfig,
+    PreprocessConfig,
+)
 from raster2svg.config.presets import resolve_preset
 from raster2svg.config.resolver import resolve_conversion_config
 from raster2svg.core.capabilities import EngineCapabilities, merge_capabilities
@@ -27,6 +32,7 @@ from raster2svg.engines import discover_engines
 from raster2svg.engines.base import TracingEngine, unsupported_fields
 from raster2svg.output.atomic_write import atomic_write_text
 from raster2svg.output.svg import validate_svg
+from raster2svg.postprocess.svg import apply_postprocessing
 from raster2svg.preprocess.image import apply_preprocessing
 from raster2svg.utils.paths import default_output_path, image_format_hint, validate_input_path
 
@@ -94,6 +100,7 @@ class Converter:
         config: ConversionConfig | None = None,
         output: OutputConfig | None = None,
         preprocess: PreprocessConfig | None = None,
+        postprocess: PostprocessConfig | None = None,
         dry_run: bool = False,
     ) -> ConversionResult:
         """Convert one raster image to SVG.
@@ -105,6 +112,7 @@ class Converter:
         output_cfg = output or OutputConfig()
         conversion_cfg = _apply_preset(config or ConversionConfig())
         preprocess_cfg = preprocess or _preset_preprocess(conversion_cfg)
+        postprocess_cfg = postprocess or _preset_postprocess(conversion_cfg)
 
         input_path = validate_input_path(input_path)
         target = Path(output_path) if output_path is not None else default_output_path(input_path)
@@ -139,6 +147,8 @@ class Converter:
                 input_height=height,
                 preprocess=_preprocess_dict(preprocess_cfg),
                 preprocess_applied=list(prepared.applied),
+                postprocess=_postprocess_dict(postprocess_cfg),
+                postprocess_applied=[],
             )
 
         started = time.perf_counter()
@@ -147,6 +157,10 @@ class Converter:
             image_format=prepared.image_format,
             config=conversion_cfg,
         )
+        post_result = apply_postprocessing(svg, postprocess_cfg)
+        svg = post_result.svg
+        if post_result.applied:
+            logger.debug("postprocessing: %s", ", ".join(post_result.applied))
         svg_bytes = svg.encode("utf-8")
         logger.debug("traced: %d bytes of SVG", len(svg))
         if output_cfg.validate_svg:
@@ -175,6 +189,8 @@ class Converter:
             input_height=height,
             preprocess=_preprocess_dict(preprocess_cfg),
             preprocess_applied=list(prepared.applied),
+            postprocess=_postprocess_dict(postprocess_cfg),
+            postprocess_applied=list(post_result.applied),
         )
 
     def convert_bytes(
@@ -184,18 +200,21 @@ class Converter:
         *,
         config: ConversionConfig | None = None,
         preprocess: PreprocessConfig | None = None,
+        postprocess: PostprocessConfig | None = None,
     ) -> tuple[str, list[str]]:
         """Convert in-memory image bytes to an SVG string without touching disk.
 
-        Reuses the exact preprocessing + tracing pipeline of :meth:`convert`,
-        but takes raw bytes and returns the SVG text plus the list of
-        preprocessing operations that were applied. Used by the web interface
-        for real-time preview; the file-based :meth:`convert` stays untouched.
+        Reuses the exact preprocessing + tracing + post-processing pipeline of
+        :meth:`convert`, but takes raw bytes and returns the SVG text plus the
+        list of preprocessing operations that were applied. Used by the web
+        interface for real-time preview; the file-based :meth:`convert` stays
+        untouched.
 
         Raises a subclass of Raster2SvgError on any failure.
         """
         conversion_cfg = _apply_preset(config or ConversionConfig())
         preprocess_cfg = preprocess or _preset_preprocess(conversion_cfg)
+        postprocess_cfg = postprocess or _preset_postprocess(conversion_cfg)
         prepared = apply_preprocessing(image_bytes, image_format, preprocess_cfg)
         engine = self._select_engine(conversion_cfg)
         svg = engine.trace(
@@ -203,6 +222,7 @@ class Converter:
             image_format=prepared.image_format,
             config=conversion_cfg,
         )
+        svg = apply_postprocessing(svg, postprocess_cfg).svg
         return svg, list(prepared.applied)
 
     @staticmethod
@@ -262,9 +282,25 @@ def _preset_preprocess(config: ConversionConfig) -> PreprocessConfig:
     return PreprocessConfig.from_dict(resolve_preset(config.preset).preprocess)
 
 
+def _preset_postprocess(config: ConversionConfig) -> PostprocessConfig:
+    """The preset's [postprocess] section, used when none was passed explicitly.
+
+    Library callers pass ``ConversionConfig(preset="line-art-inverted")`` and
+    expect the preset to supply the post-processing starting values; an
+    explicit ``PostprocessConfig`` always wins as-is.
+    """
+    if config.preset is None:
+        return PostprocessConfig()
+    return PostprocessConfig.from_dict(resolve_preset(config.preset).postprocess)
+
+
 def _config_dict(config: ConversionConfig) -> dict[str, Any]:
     return config.model_dump(mode="json")
 
 
 def _preprocess_dict(config: PreprocessConfig) -> dict[str, Any]:
+    return config.model_dump(mode="json")
+
+
+def _postprocess_dict(config: PostprocessConfig) -> dict[str, Any]:
     return config.model_dump(mode="json")

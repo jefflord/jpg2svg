@@ -26,6 +26,7 @@ def test_help_convert() -> None:
     assert result.exit_code == 0, result.output
     assert "Convert one raster image to SVG" in result.output
     assert "--preset" in result.output
+    assert "--invert" in result.output
 
 
 def test_help_config_show() -> None:

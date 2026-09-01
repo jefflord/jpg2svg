@@ -191,6 +191,30 @@ class PreprocessConfig(BaseModel):
             raise _config_error_from_validation(exc) from exc
 
 
+class PostprocessConfig(BaseModel):
+    """Optional output post-processing applied after tracing.
+
+    These operations transform the traced SVG itself (rather than the input
+    image), so they run last in the pipeline. ``False`` / identity values mean
+    "leave the SVG untouched".
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    # Render the SVG as a negative: invert explicit fills, force implicit
+    # (unspecified) black fills to white, and add a dark background rect so the
+    # result reads as light-on-dark regardless of the original ink colour.
+    invert: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PostprocessConfig:
+        """Validate a plain dict, translating errors into ConfigError."""
+        try:
+            return cls.model_validate(data)
+        except ValidationError as exc:
+            raise _config_error_from_validation(exc) from exc
+
+
 class AppConfig(BaseModel):
     """Root configuration object (PRD section 20)."""
 
@@ -198,6 +222,7 @@ class AppConfig(BaseModel):
 
     conversion: ConversionConfig = Field(default_factory=ConversionConfig)
     preprocess: PreprocessConfig = Field(default_factory=PreprocessConfig)
+    postprocess: PostprocessConfig = Field(default_factory=PostprocessConfig)
     output: OutputConfig = Field(default_factory=OutputConfig)
 
     @classmethod

@@ -7,9 +7,11 @@ import io
 import pytest
 from PIL import Image
 
-from raster2svg.config.models import ConversionConfig, PreprocessConfig
+from raster2svg.config.models import ConversionConfig, PostprocessConfig, PreprocessConfig
 from raster2svg.core.errors import UnsupportedFeatureError
 from raster2svg.services.converter import Converter
+
+_BACKGROUND = '<rect width="100%" height="100%" fill="#000000"/>'
 
 
 def _jpeg_bytes(
@@ -61,3 +63,32 @@ def test_convert_bytes_rejects_unsupported_engine_feature() -> None:
         Converter().convert_bytes(_jpeg_bytes(), "jpg", config=config)
     assert "VTracer 1.0" in (exc_info.value.hint or "")
     assert "does not support" in exc_info.value.message
+
+
+def test_convert_bytes_invert_adds_dark_background() -> None:
+    svg, _ = Converter().convert_bytes(
+        _jpeg_bytes(), "jpg", postprocess=PostprocessConfig(invert=True)
+    )
+    assert _BACKGROUND in svg
+
+
+def test_convert_bytes_invert_default_is_off() -> None:
+    svg, _ = Converter().convert_bytes(_jpeg_bytes(), "jpg")
+    assert _BACKGROUND not in svg
+
+
+def test_convert_bytes_expands_inverted_preset() -> None:
+    svg, _ = Converter().convert_bytes(
+        _jpeg_bytes(), "jpg", config=ConversionConfig(preset="line-art-inverted")
+    )
+    assert _BACKGROUND in svg
+
+
+def test_convert_bytes_explicit_postprocess_beats_inverted_preset() -> None:
+    svg, _ = Converter().convert_bytes(
+        _jpeg_bytes(),
+        "jpg",
+        config=ConversionConfig(preset="silhouette-inverted"),
+        postprocess=PostprocessConfig(invert=False),
+    )
+    assert _BACKGROUND not in svg

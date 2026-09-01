@@ -64,6 +64,7 @@ def test_api_info_shape(webserver: WebServer) -> None:
     assert {"bw", "photo", "poster"} <= set(info["presets"])
     assert all("unavailable" in f for f in info["conversion_fields"])
     assert all("unavailable" in f for f in info["preprocess_fields"])
+    assert any(f["name"] == "invert" for f in info["postprocess_fields"])
 
 
 def test_unknown_path_is_404(webserver: WebServer) -> None:
@@ -184,6 +185,44 @@ def test_convert_applies_preprocessing_options(webserver: WebServer) -> None:
     assert status == 200, result
     # The photo preset's preprocess base (denoise) merges under the sent values.
     assert set(result["applied"]) == {"denoise", "pre_max_colors", "grayscale"}
+
+
+def test_convert_invert_adds_dark_background(webserver: WebServer) -> None:
+    data = (FIXTURES / "fixture_photo.jpg").read_bytes()
+    b64 = base64.b64encode(data).decode()
+    conn = _conn(webserver)
+
+    status, uploaded, _ = _request(conn, "POST", "/api/upload", {"image": b64})
+    assert status == 200, uploaded
+    session = uploaded["session"]
+
+    status, result, _ = _request(
+        conn,
+        "POST",
+        "/api/convert",
+        {"session": session, "options": {"postprocess": {"invert": True}}},
+    )
+    assert status == 200, result
+    assert '<rect width="100%" height="100%" fill="#000000"/>' in result["svg"]
+
+
+def test_convert_inverted_preset_adds_dark_background(webserver: WebServer) -> None:
+    data = (FIXTURES / "fixture_photo.jpg").read_bytes()
+    b64 = base64.b64encode(data).decode()
+    conn = _conn(webserver)
+
+    status, uploaded, _ = _request(conn, "POST", "/api/upload", {"image": b64})
+    assert status == 200, uploaded
+    session = uploaded["session"]
+
+    status, result, _ = _request(
+        conn,
+        "POST",
+        "/api/convert",
+        {"session": session, "options": {"preset": "line-art-inverted"}},
+    )
+    assert status == 200, result
+    assert '<rect width="100%" height="100%" fill="#000000"/>' in result["svg"]
 
 
 def test_convert_unknown_session_is_409(webserver: WebServer) -> None:
